@@ -1,0 +1,33 @@
+{
+  "name": "kiirus-orm",
+  "version": "0.0.2",
+  "description": "Database ORM for Node.js",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "node_modules/.bin/standard"
+  },
+  "author": "Alvaro José Agámez Licha",
+  "license": "ISC",
+  "standard": {
+    "globals": [
+      "describe",
+      "context",
+      "before",
+      "beforeEach",
+      "after",
+      "afterEach",
+      "it",
+      "expect"
+    ]
+  },
+  "dependencies": {
+    "mysql": "^2.14.1"
+  },
+  "devDependencies": {
+    "chai": "^4.1.1",
+    "mocha": "^3.5.0",
+    "sinon": "^3.2.1",
+    "standard": "^10.0.3"
+  }
+}
