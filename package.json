@@ -1,0 +1,39 @@
+{
+  "name": "kiirus-orm",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "node_modules/.bin/standard"
+  },
+  "standard": {
+    "globals": [
+      "describe",
+      "it",
+      "afterEach",
+      "beforeEach",
+      "expect"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodeMaxter/kiirus-orm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CodeMaxter/kiirus-orm/issues"
+  },
+  "homepage": "https://github.com/CodeMaxter/kiirus-orm#readme",
+  "dependencies": {
+    "mysql": "^2.14.1"
+  },
+  "devDependencies": {
+    "chai": "^4.1.1",
+    "mocha": "^3.5.0",
+    "sinon": "^3.2.1",
+    "standard": "^10.0.3"
+  }
+}
