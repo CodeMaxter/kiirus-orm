@@ -1,7 +1,8 @@
 'use strict'
 
-const Collection = require('./../../../Support/Collection')
 const BaseGrammar = require('./../../Grammar')
+const Collection = require('./../../../Support/Collection')
+const Helper = require('./../../../Support/Helper')
 const JoinClause = require('./../JoinClause')
 const Str = require('./../../../Support/Str')
 
@@ -127,6 +128,98 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile the "limit" portions of the query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {number}  limit
+   * @return {string}
+   */
+  _compileLimit (query, limit) {
+    return 'limit ' + limit
+  }
+
+  /**
+   * Compile the "offset" portions of the query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {number}  offset
+   * @return {string}
+   */
+  _compileOffset (query, offset) {
+    return 'offset ' + offset
+  }
+
+  /**
+   * Compile the "order by" portions of the query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  orders
+   * @return {string}
+   */
+  _compileOrders (query, orders) {
+    if (!Helper.empty(orders)) {
+      return 'order by ' + this._compileOrdersToArray(query, orders).join(', ')
+    }
+
+    return ''
+  }
+
+  /**
+   * Compile the query orders to an array.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}
+   * @param  {array}  orders
+   * @return {array}
+   */
+  _compileOrdersToArray (query, orders) {
+    return orders.map((order) => {
+      return !Helper.isSet(order.sql)
+        ? this.wrap(order.column) + ' ' + order.direction
+        : order.sql
+    })
+  }
+
+  /**
+   * Compile a single union statement.
+   *
+   * @param  {object}  union
+   * @return {string}
+   */
+  _compileUnion (union) {
+    const conjuction = union.all ? ' union all ' : ' union '
+
+    return conjuction + union.query.toSql()
+  }
+
+  /**
+   * Compile the "union" queries attached to the main query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  _compileUnions (query) {
+    let sql = ''
+
+    for (let key in query.unions) {
+      sql += this._compileUnion(query.unions[key])
+    }
+
+    if (!Helper.empty(query.unionOrders)) {
+      sql += ' ' + this._compileOrders(query, query.unionOrders)
+    }
+
+    if (Helper.isSet(query.unionLimit)) {
+      sql += ' ' + this._compileLimit(query, query.unionLimit)
+    }
+
+    if (Helper.isSet(query.unionOffset)) {
+      sql += ' ' + this._compileOffset(query, query.unionOffset)
+    }
+
+    return sql.trimLeft()
+  }
+
+  /**
    * Compile the "where" portions of the query.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -160,7 +253,7 @@ module.exports = class Grammar extends BaseGrammar {
    */
   _compileWheresToArray (query) {
     return new Collection(query.wheres).map((where) => {
-      return where.boolean + ' ' + this[`_where${where['type']}`](query, where)
+      return where.boolean + ' ' + this[`_where${where.type}`](query, where)
     }).all()
   }
 
@@ -196,6 +289,20 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile a date based where clause.
+   *
+   * @param  {string}  type
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _dateBasedWhere (type, query, where) {
+    const value = this.parameter(where.values)
+
+    return type + '(' + this.wrap(where.column) + ') ' + where.operator + ' ' + value
+  }
+
+  /**
    * Remove the leading boolean from a statement.
    *
    * @param  {string}  value
@@ -227,6 +334,61 @@ module.exports = class Grammar extends BaseGrammar {
    */
   _whereColumn (query, where) {
     return this.wrap(where.first) + ' ' + where.operator + ' ' + this.wrap(where.second)
+  }
+
+  /**
+   * Compile a "where date" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  array  where
+   * @return string
+   */
+  _whereDate (query, where) {
+    return this._dateBasedWhere('date', query, where)
+  }
+
+  /**
+   * Compile a "where day" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereDay (query, where) {
+    return this._dateBasedWhere('day', query, where)
+  }
+
+  /**
+   * Compile a "where month" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereMonth (query, where) {
+    return this._dateBasedWhere('month', query, where)
+  }
+
+  /**
+   * Compile a "where time" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereTime (query, where) {
+    return this._dateBasedWhere('time', query, where)
+  }
+
+  /**
+   * Compile a "where month" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereYear (query, where) {
+    return this._dateBasedWhere('year', query, where)
   }
 
   /**

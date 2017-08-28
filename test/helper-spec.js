@@ -4,6 +4,16 @@ const expect = require('chai').expect
 const Helper = require('./../Kiirus/Support/Helper')
 
 describe('Helper', () => {
+  describe('#empty', function () {
+    it('Empty variable', function () {
+      expect(Helper.empty([])).to.equal(true)
+      expect(Helper.empty([1])).to.equal(false)
+      expect(Helper.empty(0)).to.equal(true)
+      expect(Helper.empty(false)).to.equal(true)
+      expect(Helper.empty(true)).to.equal(false)
+    })
+  })
+
   describe('#isNumeric', () => {
     it('Verify Numeric Values', () => {
       expect(Helper.isNumeric('-10')).to.equal(true)

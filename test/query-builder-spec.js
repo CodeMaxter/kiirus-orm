@@ -242,14 +242,14 @@ describe('QueryBuilder', () => {
 
       builder.select('*').from('users').where('id', '=', 1)
       expect(builder.toSql()).to.equal('select * from "users" where "id" = ?')
-      expect(builder.getBindings()).to.deep.equal([1])
+      expect(builder.getBindings()).to.be.deep.equal([1])
     })
 
     it('Default Select Parameter', () => {
       const builder = builderStub.getBuilder()
 
       builder.select()
-      expect(builder.columns).to.deep.equal(['*'])
+      expect(builder.columns).to.be.deep.equal(['*'])
     })
 
     it('Custom Select Parameter', () => {
@@ -259,7 +259,59 @@ describe('QueryBuilder', () => {
 
       builder.select(customParameter)
 
-      expect(customParameter).to.deep.equal(builder.columns)
+      expect(customParameter).to.be.deep.equal(builder.columns)
+    })
+
+    it('MySql Wrapping Protects Quotation Marks', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('some`table')
+      expect('select * from `some``table`').to.be.equal(builder.toSql())
+    })
+
+    it('Date Based Wheres Accepts Two Arguments', () => {
+      let builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereDate('created_at', 1)
+      expect('select * from `users` where date(`created_at`) = ?').to.be.equal(builder.toSql())
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereDay('created_at', 1)
+      expect('select * from `users` where day(`created_at`) = ?').to.be.equal(builder.toSql())
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereMonth('created_at', 1)
+      expect('select * from `users` where month(`created_at`) = ?').to.be.equal(builder.toSql())
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereYear('created_at', 1)
+      expect('select * from `users` where year(`created_at`) = ?').to.be.equal(builder.toSql())
+    })
+
+    it('Where Day MySql', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereDay('created_at', '=', 1)
+      expect('select * from `users` where day(`created_at`) = ?').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Month MySql', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereMonth('created_at', '=', 1)
+      expect('select * from `users` where month(`created_at`) = ?').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Year MySql', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereYear('created_at', '=', 1)
+      expect('select * from `users` where year(`created_at`) = ?').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Time MySql', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereTime('created_at', '>=', '22:00')
+      expect('select * from `users` where time(`created_at`) >= ?').to.be.equal(builder.toSql())
+      expect(['22:00']).to.be.deep.equal(builder.getBindings())
     })
   })
 })

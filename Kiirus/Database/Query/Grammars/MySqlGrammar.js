@@ -49,7 +49,7 @@ module.exports = class MySqlGrammar extends Grammar {
   compileSelect (query) {
     let sql = super.compileSelect(query)
 
-    if (query.unions !== null) {
+    if (query.unions.length > 0) {
       sql = '(' + sql + ') ' + this._compileUnions(query)
     }
 

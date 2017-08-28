@@ -1,7 +1,7 @@
 'use strict'
 
 const Arr = require('./../../Support/Arr')
-const Collection = require('./../../Support/Collection')
+// const Collection = require('./../../Support/Collection')
 const Expression = require('./Expression')
 const Helper = require('./../../Support/Helper')
 const JoinClause = require('./JoinClause')
@@ -101,6 +101,13 @@ module.exports = class Builder {
     this.table = undefined
 
     /**
+     * The query union statements.
+     *
+     * @var {array}
+     */
+    this.unions = []
+
+    /**
      * The where constraints for the query.
      *
      * @var {array}
@@ -128,6 +135,30 @@ module.exports = class Builder {
         }
       }
     }, boolean)
+  }
+
+  /**
+   * Add a date based (year, month, day, time) statement to the query.
+   *
+   * @param  {string}  type
+   * @param  {string}  column
+   * @param  {string}  operator
+   * @param  int  value
+   * @param  {string}  boolean
+   * @return this
+   */
+  _addDateBasedWhere (type, column, operator, value, booleanOperator = 'and') {
+    this.wheres.push({
+      column,
+      type,
+      'boolean': booleanOperator,
+      operator,
+      value
+    })
+
+    this.addBinding(value, 'where')
+
+    return this
   }
 
   /**
@@ -175,6 +206,11 @@ module.exports = class Builder {
     return [value, operator]
   }
 
+  /**
+   * Run the query as a "select" statement against the connection.
+   *
+   * @return {Promise}
+   */
   _runSelect () {
     return this.connection.select(
       this.toSql(),
@@ -185,11 +221,11 @@ module.exports = class Builder {
   /**
    * Add a full sub-select to the query.
    *
-   * @param  string   column
-   * @param  string   operator
-   * @param  \Closure callback
-   * @param  string   boolean
-   * @return this
+   * @param  {string}   column
+   * @param  {string}   operator
+   * @param  {function} callback
+   * @param  {string}   boolean
+   * @return {this}
    */
   _whereSub (column, operator, callback, boolean) {
     const type = 'Sub'
@@ -439,9 +475,9 @@ module.exports = class Builder {
    * @param  {function}  default
    * @return {*}
    */
-  unless (value, callback, defaultValue = null) {
+  unless (value, callbackFunc, defaultValue = null) {
     if (!value) {
-      const result = callback(this, value)
+      const result = callbackFunc(this, value)
 
       return result || this
     } else if (defaultValue) {
@@ -461,9 +497,9 @@ module.exports = class Builder {
    * @param  {function}  defaultValue
    * @return {*}
    */
-  when (value, callback, defaultValue = null) {
+  when (value, callbackFunc, defaultValue = null) {
     if (value) {
-      const result = callback(this, value)
+      const result = callbackFunc(this, value)
 
       return result || this
     } else if (defaultValue) {
@@ -593,6 +629,73 @@ module.exports = class Builder {
   }
 
   /**
+   * Add a "where date" statement to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}  operator
+   * @param  {*}  value
+   * @param  {string}  boolean
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereDate (column, operator, value = null, boolean = 'and') {
+    [value, operator] = this._prepareValueAndOperator(
+      value, operator, arguments.length === 2
+    )
+
+    return this._addDateBasedWhere('Date', column, operator, value, boolean)
+  }
+
+  /**
+   * Add a "where day" statement to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}  operator
+   * @param  {*}  value
+   * @param  {string}  boolean
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereDay (column, operator, value = null, boolean = 'and') {
+    [value, operator] = this._prepareValueAndOperator(
+      value, operator, arguments.length === 2
+    )
+
+    return this._addDateBasedWhere('Day', column, operator, value, boolean)
+  }
+
+  /**
+   * Add a "where month" statement to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}  operator
+   * @param  {*}  value
+   * @param  {string}  boolean
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereMonth (column, operator, value = null, boolean = 'and') {
+    [value, operator] = this._prepareValueAndOperator(
+      value, operator, arguments.length === 2
+    )
+
+    return this._addDateBasedWhere('Month', column, operator, value, boolean)
+  }
+  /**
+   * Add a "where year" statement to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}  operator
+   * @param  {*}  value
+   * @param  {string}  boolean
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereYear (column, operator, value = null, boolean = 'and') {
+    [value, operator] = this._prepareValueAndOperator(
+      value, operator, arguments.length === 2
+    )
+
+    return this._addDateBasedWhere('Year', column, operator, value, boolean)
+  }
+
+  /**
    * Add a nested where statement to the query.
    *
    * @param  {function} callback
@@ -621,5 +724,18 @@ module.exports = class Builder {
     this.wheres.push({type, column, boolean})
 
     return this
+  }
+
+  /**
+   * Add a "where time" statement to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}   operator
+   * @param  {number}   value
+   * @param  {string}   boolean
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereTime (column, operator, value, boolean = 'and') {
+    return this._addDateBasedWhere('Time', column, operator, value, boolean)
   }
 }

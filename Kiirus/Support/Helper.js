@@ -2,6 +2,22 @@
 
 module.exports = class Helper {
   /**
+   * Determine whether a variable is empty
+   *
+   * @param {*} data
+   * @returns {boolean}
+   */
+  static empty (data) {
+    if (undefined === data || data === null || data === '' ||
+      !!data === false || data.length === 0
+    ) {
+      return true
+    }
+
+    return false
+  }
+
+  /**
    * Determines whether its argument is a number.
    *
    * @param  {*}   value
