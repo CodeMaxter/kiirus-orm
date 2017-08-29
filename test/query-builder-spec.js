@@ -313,5 +313,54 @@ describe('QueryBuilder', () => {
       expect('select * from `users` where time(`created_at`) >= ?').to.be.equal(builder.toSql())
       expect(['22:00']).to.be.deep.equal(builder.getBindings())
     })
+
+    it('Where Date Postgres', () => {
+      const builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('users').whereDate('created_at', '=', '2015-12-21')
+      expect('select * from "users" where "created_at"::date = ?').to.be.equal(builder.toSql())
+      expect(['2015-12-21']).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Day Postgres', () => {
+      const builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('users').whereDay('created_at', '=', 1)
+      expect('select * from "users" where extract(day from "created_at") = ?').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Month Postgres', () => {
+      const builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('users').whereMonth('created_at', '=', 5)
+      expect('select * from "users" where extract(month from "created_at") = ?').to.be.equal(builder.toSql())
+      expect([5]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Year Postgres', () => {
+      const builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('users').whereYear('created_at', '=', 2014)
+      expect('select * from "users" where extract(year from "created_at") = ?').to.be.equal(builder.toSql())
+      expect([2014]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Day Sqlite', () => {
+      const builder = builderStub.getSQLiteBuilder()
+      builder.select('*').from('users').whereDay('created_at', '=', 1)
+      expect('select * from "users" where strftime(\'%d\', "created_at") = ?').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Month Sqlite', () => {
+      const builder = builderStub.getSQLiteBuilder()
+      builder.select('*').from('users').whereMonth('created_at', '=', 5)
+      expect('select * from "users" where strftime(\'%m\', "created_at") = ?').to.be.equal(builder.toSql())
+      expect([5]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Year Sqlite', () => {
+      const builder = builderStub.getSQLiteBuilder()
+      builder.select('*').from('users').whereYear('created_at', '=', 2014)
+      expect('select * from "users" where strftime(\'%Y\', "created_at") = ?').to.be.equal(builder.toSql())
+      expect([2014]).to.be.deep.equal(builder.getBindings())
+    })
   })
 })

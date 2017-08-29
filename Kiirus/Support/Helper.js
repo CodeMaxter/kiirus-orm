@@ -38,6 +38,15 @@ module.exports = class Helper {
   }
 
   /**
+   * Check if a value is a real String
+   * @param {*} value
+   * @return {boolean}
+   */
+  static isString (value) {
+    return Object.prototype.toString.call(value) === '[object String]'
+  }
+
+  /**
    * Determine if the given key exists in the provided object.
    *
    * @param  {object}  array

@@ -74,6 +74,19 @@ describe('Helper', () => {
     })
   })
 
+  describe('#isString', function () {
+    it('Scalar String', function () {
+      expect(Helper.isString('Hello World')).to.equal(true)
+      expect(Helper.isString('1')).to.equal(true)
+      expect(Helper.isString(1)).to.equal(false)
+    })
+
+    it('String Constructor', function () {
+      expect(Helper.isString(String('Hellow World'))).to.equal(true)
+      expect(Helper.isString(String('1'))).to.equal(true)
+    })
+  })
+
   describe('#keyExists', () => {
     it('Object Key Exists', () => {
       const casts = [

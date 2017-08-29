@@ -229,7 +229,7 @@ module.exports = class Grammar extends BaseGrammar {
     // Each type of where clauses has its own compiler function which is responsible
     // for actually creating the where clauses SQL. This helps keep the code nice
     // and maintainable since each clause has a very small method that it uses.
-    if (query.wheres === undefined) {
+    if (query.wheres.length === 0) {
       return ''
     }
 
@@ -389,6 +389,18 @@ module.exports = class Grammar extends BaseGrammar {
    */
   _whereYear (query, where) {
     return this._dateBasedWhere('year', query, where)
+  }
+
+  /**
+   * Compile a delete statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileDelete (query) {
+    const wheres = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
+
+    return `delete from ${this.wrapTable(query.from)} ${wheres}`.trim()
   }
 
   /**
