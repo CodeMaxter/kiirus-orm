@@ -1,5 +1,7 @@
 'use strict'
 
+const Helper = require('./Helper')
+
 module.exports = class Collection {
   /**
    * Create a new collection.
@@ -13,7 +15,7 @@ module.exports = class Collection {
      *
      * @var {array}
      */
-    this._items = Array.isArray(items) ? items : this._getArrayableItems(items)
+    this._items = Array.isArray(items) ? items : this.valueOf(items)
 
     this.length = this._items.length
   }
@@ -28,6 +30,24 @@ module.exports = class Collection {
     return {
       next: () => ({ value: data[++index], done: !(index in data) })
     }
+  }
+
+  /**
+   * Results array of items from Collection or Arrayable.
+   *
+   * @param  {*}  items
+   * @return {array}
+   */
+  valueOf (items) {
+    if (Array.isArray(items) === true) {
+      return items
+    } else if (items instanceof Collection) {
+      return items.all()
+    } else if (Helper.isObject(items) === true) {
+      return items
+    }
+
+    return items ? [items] : []
   }
 
   /**

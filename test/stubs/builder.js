@@ -7,6 +7,7 @@ const MySqlGrammar = require('./../../Kiirus/Database/Query/Grammars/MySqlGramma
 const PostgresGrammar = require('./../../Kiirus/Database/Query/Grammars/PostgresGrammar')
 const Processor = require('./../../Kiirus/Database/Query/Processors/Processor')
 const SQLiteGrammar = require('./../../Kiirus/Database/Query/Grammars/SQLiteGrammar')
+const SqlServerGrammar = require('./../../Kiirus/Database/Query/Grammars/SqlServerGrammar')
 
 const getBuilder = () => {
   const connection = new Connection()
@@ -44,9 +45,19 @@ const getSQLiteBuilder = () => {
   return builder
 }
 
+const getSqlServerBuilder = () => {
+  const connection = new Connection()
+  const grammar = new SqlServerGrammar()
+  const processor = new Processor()
+  const builder = new Builder(connection, grammar, processor)
+
+  return builder
+}
+
 module.exports = {
   getBuilder: getBuilder,
   getMySqlBuilder: getMySqlBuilder,
   getPostgresBuilder: getPostgresBuilder,
-  getSQLiteBuilder: getSQLiteBuilder
+  getSQLiteBuilder: getSQLiteBuilder,
+  getSqlServerBuilder: getSqlServerBuilder
 }

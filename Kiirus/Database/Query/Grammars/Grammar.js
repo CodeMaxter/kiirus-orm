@@ -326,6 +326,19 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile a "between" where clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereBetween (query, where) {
+    const between = where.not ? 'not between' : 'between'
+
+    return this.wrap(where.column) + ' ' + between + ' ? and ?'
+  }
+
+  /**
    * Compile a where clause comparing two columns..
    *
    * @param  {\Illuminate\Database\Query\Builder}  query

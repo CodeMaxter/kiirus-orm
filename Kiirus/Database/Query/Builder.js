@@ -518,7 +518,7 @@ module.exports = class Builder {
    * @param  {string}  operator
    * @param  {*}   value
    * @param  {string}  booleanOperator
-   * @return {Builder}
+   * @return {\Kiirus\Database\Query\Builder}
    *
    * @throws {\InvalidArgumentException}
    */
@@ -678,6 +678,7 @@ module.exports = class Builder {
 
     return this._addDateBasedWhere('Month', column, operator, value, boolean)
   }
+
   /**
    * Add a "where year" statement to the query.
    *

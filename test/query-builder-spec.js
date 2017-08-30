@@ -362,5 +362,26 @@ describe('QueryBuilder', () => {
       expect('select * from "users" where strftime(\'%Y\', "created_at") = ?').to.be.equal(builder.toSql())
       expect([2014]).to.be.deep.equal(builder.getBindings())
     })
+
+    it('Where Day SqlServer', () => {
+      const builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').whereDay('created_at', '=', 1)
+      expect('select * from [users] where day([created_at]) = ?').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Month SqlServer', () => {
+      const builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').whereMonth('created_at', '=', 5)
+      expect('select * from [users] where month([created_at]) = ?').to.be.equal(builder.toSql())
+      expect([5]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Where Year SqlServer', () => {
+      const builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').whereYear('created_at', '=', 2014)
+      expect('select * from [users] where year([created_at]) = ?').to.be.equal(builder.toSql())
+      expect([2014]).to.be.deep.equal(builder.getBindings())
+    })
   })
 })

@@ -2,6 +2,22 @@
 
 module.exports = class Helper {
   /**
+   * Clone a object
+   *
+   * @param {object} value
+   * @returns {*}
+   */
+  static clone (value) {
+    let copy = Object.create(Object.getPrototypeOf(value))
+
+    Object.getOwnPropertyNames(value).forEach(propName => {
+      Object.defineProperty(copy, propName, Object.getOwnPropertyDescriptor(value, propName))
+    })
+
+    return copy
+  }
+
+  /**
    * Determine whether a variable is empty
    *
    * @param {*} data
@@ -25,6 +41,16 @@ module.exports = class Helper {
    */
   static isNumeric (value) {
     return !Array.isArray(value) && (value - parseFloat(value) + 1) >= 0
+  }
+
+  /**
+   * Check if a value is a real Object
+   *
+   * @param {*} value
+   * @return {boolean}
+   */
+  static isObject (value) {
+    return Object.prototype.toString.call(value) === '[object Object]'
   }
 
   /**

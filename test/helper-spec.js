@@ -59,6 +59,16 @@ describe('Helper', () => {
     })
   })
 
+  describe('#isObject', () => {
+    it('Check Is a Var is Object', () => {
+      expect(Helper.isObject({})).to.equal(true)
+      expect(Helper.isObject(Object())).to.equal(true)
+      expect(Helper.isObject('')).to.equal(false)
+      expect(Helper.isObject([])).to.equal(false)
+      expect(Helper.isObject(1)).to.equal(false)
+    })
+  })
+
   describe('#isSet', () => {
     it('Check Is a Var is Set', () => {
       expect(Helper.isSet(6)).to.equal(true)
@@ -74,7 +84,7 @@ describe('Helper', () => {
     })
   })
 
-  describe('#isString', function () {
+  describe('#isString', () => {
     it('Scalar String', function () {
       expect(Helper.isString('Hello World')).to.equal(true)
       expect(Helper.isString('1')).to.equal(true)
