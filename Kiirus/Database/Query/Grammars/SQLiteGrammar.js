@@ -39,22 +39,6 @@ module.exports = class SQLiteGrammar extends Grammar {
   }
 
   /**
-   * Compile a select query into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {string}
-   */
-  compileSelect (query) {
-    let sql = super.compileSelect(query)
-
-    if (Object.keys(query.unions).length > 0) {
-      sql = 'select * from (' + sql + ') ' + this._compileUnions(query)
-    }
-
-    return sql
-  }
-
-  /**
    * Compile a single union statement.
    *
    * @param  {array}  union
@@ -64,6 +48,22 @@ module.exports = class SQLiteGrammar extends Grammar {
     const conjuction = union['all'] ? ' union all ' : ' union '
 
     return conjuction + 'select * from (' + union.query.toSql() + ')'
+  }
+
+  /**
+   * Compile a date based where clause.
+   *
+   * @param  {string}  type
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _dateBasedWhere (type, query, where) {
+    let value = String(where.value).padStart(2, '0')
+
+    value = this.parameter(value)
+
+    return `strftime('${type}', ${this.wrap(where.column)}) ${where.operator} ${value}`
   }
 
   /**
@@ -111,22 +111,6 @@ module.exports = class SQLiteGrammar extends Grammar {
   }
 
   /**
-   * Compile a date based where clause.
-   *
-   * @param  {string}  type
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  where
-   * @return {string}
-   */
-  _dateBasedWhere (type, query, where) {
-    let value = String(where.value).padStart(2, '0')
-
-    value = this.parameter(value)
-
-    return `strftime('${type}', ${this.wrap(where.column)}) ${where.operator} ${value}`
-  }
-
-  /**
    * Compile an insert statement into SQL.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -166,6 +150,22 @@ module.exports = class SQLiteGrammar extends Grammar {
     columns = columns.join(', ').fill(0, values.length)
 
     return `insert into ${table} (${names}) select ` + columns.join(' union all select ')
+  }
+
+  /**
+   * Compile a select query into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileSelect (query) {
+    let sql = super.compileSelect(query)
+
+    if (Object.keys(query.unions).length > 0) {
+      sql = 'select * from (' + sql + ') ' + this._compileUnions(query)
+    }
+
+    return sql
   }
 
   /**
