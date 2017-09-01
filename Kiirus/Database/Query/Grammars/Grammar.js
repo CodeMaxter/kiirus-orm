@@ -372,6 +372,21 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile a "where in" clause.
+   *
+   * @param  {\Kirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereIn (query, where) {
+    if (!Helper.empty(where.values)) {
+      return this.wrap(where.column) + ' in (' + this.parameterize(where.values) + ')'
+    }
+
+    return '0 = 1'
+  }
+
+  /**
    * Compile a "where month" clause.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -380,6 +395,32 @@ module.exports = class Grammar extends BaseGrammar {
    */
   _whereMonth (query, where) {
     return this._dateBasedWhere('month', query, where)
+  }
+
+  /**
+   * Compile a "where not in" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereNotIn (query, where) {
+    if (!Helper.empty(where['values'])) {
+      return this.wrap(where.column) + ' not in (' + this.parameterize(where.values) + ')'
+    }
+
+    return '1 = 1'
+  }
+
+  /**
+   * Compile a raw where clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereRaw (query, where) {
+    return where.sql
   }
 
   /**

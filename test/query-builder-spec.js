@@ -383,5 +383,62 @@ describe('QueryBuilder', () => {
       expect('select * from [users] where year([created_at]) = ?').to.be.equal(builder.toSql())
       expect([2014]).to.be.deep.equal(builder.getBindings())
     })
+
+    it('Where Betweens', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereBetween('id', [1, 2])
+      expect('select * from "users" where "id" between ? and ?', builder.toSql())
+      expect([1, 2]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereNotBetween('id', [1, 2])
+      expect('select * from "users" where "id" not between ? and ?', builder.toSql())
+      expect([1, 2]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Basic Or Wheres', () => {
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1).orWhere('email', '=', 'foo')
+      expect('select * from "users" where "id" = ? or "email" = ?', builder.toSql())
+      expect([1, 'foo']).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Raw Wheres', () => {
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereRaw('id = ? or email = ?', [1, 'foo'])
+      expect('select * from "users" where id = ? or email = ?', builder.toSql())
+      expect([1, 'foo']).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Raw Or Wheres', () => {
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1).orWhereRaw('email = ?', ['foo'])
+      expect('select * from "users" where "id" = ? or email = ?', builder.toSql())
+      expect([1, 'foo']).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Basic Where Ins', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereIn('id', [1, 2, 3])
+      expect('select * from "users" where "id" in (?, ?, ?)', builder.toSql())
+      expect([1, 2, 3]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1).orWhereIn('id', [1, 2, 3])
+      expect('select * from "users" where "id" = ? or "id" in (?, ?, ?)', builder.toSql())
+      expect([1, 1, 2, 3]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Basic Where Not Ins', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereNotIn('id', [1, 2, 3])
+      expect('select * from "users" where "id" not in (?, ?, ?)', builder.toSql())
+      expect([1, 2, 3]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1).orWhereNotIn('id', [1, 2, 3])
+      expect('select * from "users" where "id" = ? or "id" not in (?, ?, ?)', builder.toSql())
+      expect([1, 1, 2, 3]).to.be.deep.equal(builder.getBindings())
+    })
   })
 })

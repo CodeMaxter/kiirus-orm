@@ -5,6 +5,7 @@ const Arr = require('./../../Support/Arr')
 const Expression = require('./Expression')
 const Helper = require('./../../Support/Helper')
 const JoinClause = require('./JoinClause')
+const KiirusBuilder = require('./../Ceres/Builder')
 
 module.exports = class Builder {
   /**
@@ -219,15 +220,70 @@ module.exports = class Builder {
   }
 
   /**
+   * Add an external sub-select to the query.
+   *
+   * @param  {string}   column
+   * @param  {\Kiirus\Database\Query\Builder|static}  query
+   * @param  {string}   booleanOperator
+   * @param  {boolean}     not
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _whereInExistingQuery (column, query, booleanOperator, not) {
+    const type = not ? 'NotInSub' : 'InSub'
+
+    this.wheres.push({
+      type,
+      column,
+      query,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(query.getBindings(), 'where')
+
+    return this
+  }
+
+  /**
+   * Add a where in with a sub-select to the query.
+   *
+   * @param  {string}   column
+   * @param  {function} callback
+   * @param  {string}   booleanOperator
+   * @param  {boolean}  not
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _whereInSub (column, callback, booleanOperator, not) {
+    const type = not ? 'NotInSub' : 'InSub'
+
+    // To create the exists sub-select, we will actually create a query and call the
+    // provided callback with the query so the developer may set any of the query
+    // conditions they want for the in clause, then we'll put it in this array.
+    const query = this.newQuery()
+
+    callback(query)
+
+    this.wheres.push({
+      type,
+      column,
+      query,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(query.getBindings(), 'where')
+
+    return this
+  }
+
+  /**
    * Add a full sub-select to the query.
    *
    * @param  {string}   column
    * @param  {string}   operator
    * @param  {function} callback
-   * @param  {string}   boolean
+   * @param  {string}   booleanOperator
    * @return {this}
    */
-  _whereSub (column, operator, callback, boolean) {
+  _whereSub (column, operator, callback, booleanOperator) {
     const type = 'Sub'
 
     const query = this.newQuery()
@@ -238,7 +294,11 @@ module.exports = class Builder {
     callback(query)
 
     this.wheres.push({
-      type, column, operator, query, boolean
+      type,
+      column,
+      operator,
+      query,
+      'boolean': booleanOperator
     })
 
     this.addBinding(query.getBindings(), 'where')
@@ -273,14 +333,19 @@ module.exports = class Builder {
    * Add another query builder as a nested where to the query builder.
    *
    * @param  {\Kiirus\Database\Query\Builder|static} query
-   * @param  {string}  boolean
+   * @param  {string}  booleanOperator
    * @return {this}
    */
-  addNestedWhereQuery (query, boolean = 'and') {
+  addNestedWhereQuery (query, booleanOperator = 'and') {
     if (query.wheres.length > 0) {
       const type = 'Nested'
 
-      this.wheres.push({type, query, boolean})
+      this.wheres.push({
+        type,
+        query,
+        'boolean':
+        booleanOperator
+      })
 
       this.addBinding(query.getBindings(), 'where')
     }
@@ -437,6 +502,51 @@ module.exports = class Builder {
   }
 
   /**
+   * Add an "or where" clause to the query.
+   *
+   * @param  {string|array|function}  column
+   * @param  {string}  operator
+   * @param  {*}   value
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  orWhere (column, operator = null, value = null) {
+    return this.where(column, operator, value, 'or')
+  }
+
+  /**
+   * Add an "or where in" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {*}   values
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  orWhereIn (column, values) {
+    return this.whereIn(column, values, 'or')
+  }
+
+  /**
+   * Add an "or where not in" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {*}   values
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  orWhereNotIn (column, values) {
+    return this.whereNotIn(column, values, 'or')
+  }
+
+  /**
+   * Add a raw or where clause to the query.
+   *
+   * @param  {string}  sql
+   * @param  {*}   bindings
+   * @return{ \Kiirus\Database\Query\Builder|static}
+   */
+  orWhereRaw (sql, bindings = []) {
+    return this.whereRaw(sql, bindings, 'or')
+  }
+
+  /**
    * Set the columns to be selected.
    *
    * @param  {array|*}  columns
@@ -589,6 +699,30 @@ module.exports = class Builder {
   }
 
   /**
+   * Add a where between statement to the query.
+   *
+   * @param  {string}  column
+   * @param  {array}   values
+   * @param  {string}  booleanOperator
+   * @param  {boolean}  not
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  whereBetween (column, values, booleanOperator = 'and', not = false) {
+    const type = 'Between'
+
+    this.wheres.push({
+      column,
+      type,
+      boolean: booleanOperator,
+      not
+    })
+
+    this.addBinding(values, 'where')
+
+    return this
+  }
+
+  /**
    * Add a "where" clause comparing two columns to the query.
    *
    * @param  {string|array}  first
@@ -634,15 +768,15 @@ module.exports = class Builder {
    * @param  {string}  column
    * @param  {string}  operator
    * @param  {*}  value
-   * @param  {string}  boolean
+   * @param  {string}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereDate (column, operator, value = null, boolean = 'and') {
+  whereDate (column, operator, value = null, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
 
-    return this._addDateBasedWhere('Date', column, operator, value, boolean)
+    return this._addDateBasedWhere('Date', column, operator, value, booleanOperator)
   }
 
   /**
@@ -651,15 +785,73 @@ module.exports = class Builder {
    * @param  {string}  column
    * @param  {string}  operator
    * @param  {*}  value
-   * @param  {string}  boolean
-   * @return {\Kiirus\Database\Query\Builder|static}
+   * @param  {string}  booleanOperator
+   * @return {\Kiirus\Database\Query\Builder}
    */
-  whereDay (column, operator, value = null, boolean = 'and') {
+  whereDay (column, operator, value = null, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
 
-    return this._addDateBasedWhere('Day', column, operator, value, boolean)
+    return this._addDateBasedWhere('Day', column, operator, value, booleanOperator)
+  }
+
+  /**
+   * Add a "where in" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {*}   values
+   * @param  {string}  booleanOperator
+   * @param  {boolean}    not
+   * @return this
+   */
+  whereIn (column, values, booleanOperator = 'and', not = false) {
+    const type = not ? 'NotIn' : 'In'
+
+    if (values instanceof KiirusBuilder) {
+      values = values.getQuery()
+    }
+
+    // If the value is a query builder instance we will assume the developer wants to
+    // look for any values that exists within this given query. So we will add the
+    // query accordingly so that this query is properly executed when it is run.
+    if (values instanceof this.constructor) {
+      return this._whereInExistingQuery(
+        column, values, booleanOperator, not
+      )
+    }
+
+    // If the value of the where in clause is actually a Closure, we will assume that
+    // the developer is using a full sub-select for this "in" statement, and will
+    // execute those Closures, then we can re-construct the entire sub-selects.
+    if (typeof values === 'function') {
+      return this._whereInSub(column, values, booleanOperator, not)
+    }
+
+    // Next, if the value is Arrayable we need to cast it to its raw array form so we
+    // have the underlying array value instead of an Arrayable object which is not
+    // able to be added as a binding, etc. We will then add to the wheres array.
+    if (Array.isArray(values)) {
+      values = Array.from(values)
+    }
+
+    this.wheres.push({
+      type,
+      column,
+      values,
+      'boolean': booleanOperator
+    })
+
+    // Finally we'll add a binding for each values unless that value is an expression
+    // in which case we will just skip over it since it will be the query as a raw
+    // string and not as a parameterized place-holder to be replaced by the PDO.
+    for (let value of values) {
+      if (!(value instanceof Expression)) {
+        this.addBinding(value, 'where')
+      }
+    }
+
+    return this
   }
 
   /**
@@ -668,15 +860,59 @@ module.exports = class Builder {
    * @param  {string}  column
    * @param  {string}  operator
    * @param  {*}  value
-   * @param  {string}  boolean
+   * @param  {string}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereMonth (column, operator, value = null, boolean = 'and') {
+  whereMonth (column, operator, value = null, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
 
-    return this._addDateBasedWhere('Month', column, operator, value, boolean)
+    return this._addDateBasedWhere('Month', column, operator, value, booleanOperator)
+  }
+
+  /**
+   * Add a where not between statement to the query.
+   *
+   * @param  {string}  column
+   * @param  {array}   values
+   * @param  {string}  booleanOperator
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereNotBetween (column, values, booleanOperator = 'and') {
+    return this.whereBetween(column, values, booleanOperator, true)
+  }
+
+  /**
+   * Add a "where not in" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {*}   values
+   * @param  {string}  boolean
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereNotIn (column, values, boolean = 'and') {
+    return this.whereIn(column, values, boolean, true)
+  }
+
+  /**
+   * Add a raw where clause to the query.
+   *
+   * @param  {string}  sql
+   * @param  {*}   bindings
+   * @param  {string}  booleanOperator
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  whereRaw (sql, bindings = [], booleanOperator = 'and') {
+    this.wheres.push({
+      'type': 'Raw',
+      sql,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(bindings, 'where')
+
+    return this
   }
 
   /**
@@ -685,44 +921,44 @@ module.exports = class Builder {
    * @param  {string}  column
    * @param  {string}  operator
    * @param  {*}  value
-   * @param  {string}  boolean
+   * @param  {string}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereYear (column, operator, value = null, boolean = 'and') {
+  whereYear (column, operator, value = null, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
 
-    return this._addDateBasedWhere('Year', column, operator, value, boolean)
+    return this._addDateBasedWhere('Year', column, operator, value, booleanOperator)
   }
 
   /**
    * Add a nested where statement to the query.
    *
    * @param  {function} callback
-   * @param  {string}   boolean
+   * @param  {string}   booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereNested (callback, boolean = 'and') {
+  whereNested (callback, booleanOperator = 'and') {
     const query = this.forNestedWhere()
 
     callback(query)
 
-    return this.addNestedWhereQuery(query, boolean)
+    return this.addNestedWhereQuery(query, booleanOperator)
   }
 
   /**
    * Add a "where null" clause to the query.
    *
    * @param  {string}  column
-   * @param  {string}  boolean
+   * @param  {string}  booleanOperator
    * @param  {boolean}    not
    * @return {this}
    */
-  whereNull (column, boolean = 'and', not = false) {
+  whereNull (column, booleanOperator = 'and', not = false) {
     const type = not ? 'NotNull' : 'Null'
 
-    this.wheres.push({type, column, boolean})
+    this.wheres.push({type, column, booleanOperator})
 
     return this
   }
@@ -733,10 +969,10 @@ module.exports = class Builder {
    * @param  {string}  column
    * @param  {string}   operator
    * @param  {number}   value
-   * @param  {string}   boolean
+   * @param  {string}   booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereTime (column, operator, value, boolean = 'and') {
-    return this._addDateBasedWhere('Time', column, operator, value, boolean)
+  whereTime (column, operator, value, booleanOperator = 'and') {
+    return this._addDateBasedWhere('Time', column, operator, value, booleanOperator)
   }
 }

@@ -103,6 +103,16 @@ module.exports = class Grammar {
   }
 
   /**
+   * Create query parameter place-holders for an array.
+   *
+   * @param  {array}   values
+   * @return {string}
+   */
+  parameterize (values) {
+    return values.map(this.parameter.bind(this)).join(', ')
+  }
+
+  /**
    * Set the grammar's table prefix.
    *
    * @param  {string}  prefix
