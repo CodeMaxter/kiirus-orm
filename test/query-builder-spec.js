@@ -2,6 +2,8 @@
 
 const expect = require('chai').expect
 
+const Raw = require('./../Kiirus/Database/Query/Expression')
+
 const createMock = require('./tools/auto-verify-mock').createMock
 const autoVerify = require('./tools/auto-verify-mock').autoVerify
 const builderStub = require('./stubs/builder')
@@ -439,6 +441,53 @@ describe('QueryBuilder', () => {
       builder.select('*').from('users').where('id', '=', 1).orWhereNotIn('id', [1, 2, 3])
       expect('select * from "users" where "id" = ? or "id" not in (?, ?, ?)', builder.toSql())
       expect([1, 1, 2, 3]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Raw Where Ins', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereIn('id', [new Raw(1)])
+      expect('select * from "users" where "id" in (1)').to.be.equal(builder.toSql())
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1).orWhereIn('id', [new Raw(1)])
+      expect('select * from "users" where "id" = ? or "id" in (1)').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Empty Where Ins', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereIn('id', [])
+      expect('select * from "users" where 0 = 1').to.be.equal(builder.toSql())
+      expect([]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1).orWhereIn('id', [])
+      expect('select * from "users" where "id" = ? or 0 = 1').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Empty Where Not Ins', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereNotIn('id', [])
+      expect('select * from "users" where 1 = 1').to.be.equal(builder.toSql())
+      expect([]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1).orWhereNotIn('id', [])
+      expect('select * from "users" where "id" = ? or 1 = 1').to.be.equal(builder.toSql())
+      expect([1]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Basic Where Column', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereColumn('first_name', 'last_name').orWhereColumn('first_name', 'middle_name')
+      expect('select * from "users" where "first_name" = "last_name" or "first_name" = "middle_name"').to.be.equal(builder.toSql())
+      expect([]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereColumn('updated_at', '>', 'created_at')
+      expect('select * from "users" where "updated_at" > "created_at"').to.be.equal(builder.toSql())
+      expect([]).to.be.deep.equal(builder.getBindings())
     })
   })
 })

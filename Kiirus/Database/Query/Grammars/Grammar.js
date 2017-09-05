@@ -484,4 +484,13 @@ module.exports = class Grammar extends BaseGrammar {
 
     return sql
   }
+
+  /**
+   * Get the grammar specific operators.
+   *
+   * @return {array}
+   */
+  getOperators () {
+    return this._operators
+  }
 }

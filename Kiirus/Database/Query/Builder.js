@@ -514,6 +514,18 @@ module.exports = class Builder {
   }
 
   /**
+   * Add an "or where" clause comparing two columns to the query.
+   *
+   * @param  {string|array}  first
+   * @param  {string|null}  operator
+   * @param  {string|null}  second
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  orWhereColumn (first, operator = null, second = null) {
+    return this.whereColumn(first, operator, second, 'or')
+  }
+
+  /**
    * Add an "or where in" clause to the query.
    *
    * @param  {string}  column
