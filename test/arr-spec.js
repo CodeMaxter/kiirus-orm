@@ -3,6 +3,7 @@
 const expect = require('chai').expect
 
 const Arr = require('./../Kiirus/Support/Arr')
+const Helper = require('./../Kiirus/Support/Helper')
 
 describe('Arr', () => {
   describe('#except', () => {
@@ -125,6 +126,18 @@ describe('Arr', () => {
 
       Arr.unSet(array, 'products.desk')
       expect(array).to.deep.equal({ 'products': {} })
+    })
+  })
+
+  describe('#where', () => {
+    it('Test Where', () => {
+      let array = [100, '200', 300, '400', 500]
+
+      array = Arr.where(array, function (value, key) {
+        return Helper.isString(value)
+      })
+
+      expect(['200', '400']).to.be.deep.equal(array)
     })
   })
 })

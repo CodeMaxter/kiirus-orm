@@ -1,5 +1,6 @@
 'use strict'
 
+const Arr = require('./../../../Support/Arr')
 const BaseGrammar = require('./../../Grammar')
 const Collection = require('./../../../Support/Collection')
 const Helper = require('./../../../Support/Helper')
@@ -91,7 +92,9 @@ module.exports = class Grammar extends BaseGrammar {
       // To compile the query, we'll spin through each component of the query and
       // see if that component exists. If it does we'll just call the compiler
       // function for the component which is responsible for making the SQL.
-      if (query[component.translated] !== undefined) {
+      if (query[component.translated] !== undefined &&
+        query[component.translated].length > 0
+      ) {
         const method = '_compile' + Str.ucfirst(component.name)
 
         sql[component.name] = this[method](query, query[component.translated])
@@ -200,8 +203,8 @@ module.exports = class Grammar extends BaseGrammar {
   _compileUnions (query) {
     let sql = ''
 
-    for (let key in query.unions) {
-      sql += this._compileUnion(query.unions[key])
+    for (let union of query.unions) {
+      sql += this._compileUnion(union)
     }
 
     if (!Helper.empty(query.unionOrders)) {
@@ -398,6 +401,22 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile a nested where clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereNested (query, where) {
+    // Here we will calculate what portion of the string we need to remove. If this
+    // is a join clause query, we need to remove the "on" portion of the SQL and
+    // if it is a normal query we need to take the leading "where" of queries.
+    const offset = query instanceof JoinClause ? 3 : 6
+
+    return '(' + this._compileWheres(where['query']).substr(offset) + ')'
+  }
+
+  /**
    * Compile a "where not in" clause.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -492,5 +511,20 @@ module.exports = class Grammar extends BaseGrammar {
    */
   getOperators () {
     return this._operators
+  }
+
+  /**
+   * Prepare the bindings for an update statement.
+   *
+   * @param  {object}  bindings
+   * @param  {array}  values
+   * @return {array}
+   */
+  prepareBindingsForUpdate (bindings, values) {
+    const bindingsWithoutJoin = Arr.except(bindings, 'join')
+
+    return Object.values(
+      Helper.merge(bindings.join, values, Arr.flatten(bindingsWithoutJoin))
+    )
   }
 }

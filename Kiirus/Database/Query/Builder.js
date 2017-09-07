@@ -74,6 +74,13 @@ module.exports = class Builder {
     this.joins = []
 
     /**
+     * The maximum number of records to return.
+     *
+     * @var {number}
+     */
+    this.limitProperty = undefined
+
+    /**
      * All of the available clause operators.
      *
      * @var {array}
@@ -86,6 +93,13 @@ module.exports = class Builder {
       '~', '~*', '!~', '!~*', 'similar to',
       'not similar to', 'not ilike', '~~*', '!~~*'
     ]
+
+    /**
+     * The orderings for the query.
+     *
+     * @var {array}
+     */
+    this.orders = []
 
     /**
      * The database query post processor instance.
@@ -102,11 +116,25 @@ module.exports = class Builder {
     this.table = undefined
 
     /**
+     * The maximum number of union records to return.
+     *
+     * @var {number}
+     */
+    this.unionLimit = undefined
+
+    /**
      * The query union statements.
      *
      * @var {array}
      */
     this.unions = []
+
+    /**
+     * The orderings for the union query.
+     *
+     * @var {array}
+     */
+    this.unionOrders = []
 
     /**
      * The where constraints for the query.
@@ -493,12 +521,44 @@ module.exports = class Builder {
   }
 
   /**
+   * Set the "limit" value of the query.
+   *
+   * @param  {number}  value
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  limit (value) {
+    const property = this.unions.length > 0 ? 'unionLimit' : 'limitProperty'
+
+    if (value >= 0) {
+      this[property] = value
+    }
+
+    return this
+  }
+
+  /**
    * Get a new instance of the query builder.
    *
-   * @return {\Illuminate\Database\Query\Builder}
+   * @return {\Kiirus\Database\Query\Builder}
    */
   newQuery () {
     return new this.constructor(this.connection, this.grammar, this.processor)
+  }
+
+  /**
+   * Add an "order by" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}  direction
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  orderBy (column, direction = 'asc') {
+    this[this.unions.length > 0 ? 'unionOrders' : 'orders'].push({
+      column,
+      'direction': direction.toLowerCase() === 'asc' ? 'asc' : 'desc'
+    })
+
+    return this
   }
 
   /**
@@ -587,6 +647,30 @@ module.exports = class Builder {
    */
   toSql () {
     return this.grammar.compileSelect(this)
+  }
+
+  /**
+   * Add a union statement to the query.
+   *
+   * @param  \Kiirus\Database\Query\Builder|static
+   */
+  union (query, all = false) {
+    if (typeof query === 'function') {
+      const newQuery = this.newQuery()
+
+      query(newQuery)
+
+      query = newQuery
+    }
+
+    this.unions.push({
+      query,
+      all
+    })
+
+    this.addBinding(query.getBindings(), 'union')
+
+    return this
   }
 
   /**

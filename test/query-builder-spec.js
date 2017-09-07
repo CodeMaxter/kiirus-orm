@@ -489,5 +489,45 @@ describe('QueryBuilder', () => {
       expect('select * from "users" where "updated_at" > "created_at"').to.be.equal(builder.toSql())
       expect([]).to.be.deep.equal(builder.getBindings())
     })
+
+    it('Array Where Column', () => {
+      const conditions = [
+        ['first_name', 'last_name'],
+        ['updated_at', '>', 'created_at']
+      ]
+
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').whereColumn(conditions)
+      expect('select * from "users" where ("first_name" = "last_name" and "updated_at" > "created_at")').to.be.equal(builder.toSql())
+      expect([]).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Unions', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('id', '=', 1)
+      builder.union(builderStub.getBuilder().select('*').from('users').where('id', '=', 2))
+      expect('select * from "users" where "id" = ? union select * from "users" where "id" = ?').to.be.equal(builder.toSql())
+      expect([1, 2]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('id', '=', 1)
+      builder.union(builderStub.getMySqlBuilder().select('*').from('users').where('id', '=', 2))
+      expect('(select * from `users` where `id` = ?) union (select * from `users` where `id` = ?)').to.be.equal(builder.toSql())
+      expect([1, 2]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getMySqlBuilder()
+      let expectedSql = '(select `a` from `t1` where `a` = ? and `b` = ?) union (select `a` from `t2` where `a` = ? and `b` = ?) order by `a` asc limit 10'
+      let union = builderStub.getMySqlBuilder().select('a').from('t2').where('a', 11).where('b', 2)
+      builder.select('a').from('t1').where('a', 10).where('b', 1).union(union).orderBy('a').limit(10)
+      expect(expectedSql).to.be.equal(builder.toSql())
+      expect([10, 1, 11, 2]).to.be.deep.equal(builder.getBindings())
+
+      builder = builderStub.getSQLiteBuilder()
+      expectedSql = 'select * from (select "name" from "users" where "id" = ?) union select * from (select "name" from "users" where "id" = ?)'
+      builder.select('name').from('users').where('id', '=', 1)
+      builder.union(builderStub.getSQLiteBuilder().select('name').from('users').where('id', '=', 2))
+      expect(expectedSql).to.be.equal(builder.toSql())
+      expect([1, 2]).to.be.deep.equal(builder.getBindings())
+    })
   })
 })

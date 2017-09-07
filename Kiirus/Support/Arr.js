@@ -179,4 +179,29 @@ module.exports = class Arr {
 
     delete input[parts.shift()]
   }
+
+  /**
+   * Filter the array using the given callback.
+   *
+   * @param  {array}  value
+   * @param  {function}  callback
+   * @return {array}
+   */
+  static where (value, callback) {
+    if (Array.isArray(value)) {
+      return value.filter(callback)
+    }
+
+    return Object.keys(value)
+      .filter(key => {
+        const item = {[key]: value[key]}
+
+        return callback(item, key)
+      })
+      .reduce((res, key) => {
+        res[key] = value[key]
+
+        return res
+      }, {})
+  }
 }
