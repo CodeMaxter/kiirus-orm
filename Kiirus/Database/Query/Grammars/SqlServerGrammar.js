@@ -311,7 +311,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   compileSelect (query) {
-    if (!query.offset) {
+    if (!query.offsetProperty) {
       return super.compileSelect(query)
     }
 
@@ -323,7 +323,7 @@ module.exports = class SqlServerGrammar extends Grammar {
     }
 
     return this._compileAnsiOffset(
-      query, this.compileComponents(query)
+      query, this._compileComponents(query)
     )
   }
 

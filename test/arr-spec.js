@@ -140,4 +140,17 @@ describe('Arr', () => {
       expect(['200', '400']).to.be.deep.equal(array)
     })
   })
+
+  describe('#wrap', () => {
+    it('Test Wrap', () => {
+      const string = 'a'
+      const array = ['a']
+      const object = {}
+      object.value = 'a'
+
+      expect(['a']).to.be.deep.equal(Arr.wrap(string))
+      expect(array).to.be.deep.equal(Arr.wrap(array))
+      expect([object]).to.be.deep.equal(Arr.wrap(object))
+    })
+  })
 })

@@ -4,7 +4,7 @@ module.exports = class Processor {
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
    * @param  {array}  results
-   * @return {array}
+   * @return {Promise</Kiirus/Database/Ceres/Collection>}
    */
   processSelect (query, results) {
     return results

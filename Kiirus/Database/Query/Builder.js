@@ -67,6 +67,20 @@ module.exports = class Builder {
     this.grammar = grammar
 
     /**
+     * The groupings for the query.
+     *
+     * @var {array}
+     */
+    this.groups = []
+
+    /**
+     * The having constraints for the query.
+     *
+     * @var {array}
+     */
+    this.havings = []
+
+    /**
      * The table joins for the query.
      *
      * @var {array}
@@ -93,6 +107,13 @@ module.exports = class Builder {
       '~', '~*', '!~', '!~*', 'similar to',
       'not similar to', 'not ilike', '~~*', '!~~*'
     ]
+
+    /**
+     * The number of records to skip.
+     *
+     * @var {number}
+     */
+    this.offsetProperty = undefined
 
     /**
      * The orderings for the query.
@@ -128,6 +149,13 @@ module.exports = class Builder {
      * @var {array}
      */
     this.unions = []
+
+    /**
+     * The number of union records to skip.
+     *
+     * @var {number}
+     */
+    this.unionOffset = undefined
 
     /**
      * The orderings for the union query.
@@ -197,8 +225,8 @@ module.exports = class Builder {
    * @return {boolean}
    */
   _invalidOperator (operator) {
-    return !this.operators.includes(operator.toLowerCase()) &&
-      !this.grammar.getOperators().includes(operator.toLowerCase())
+    return !this.operators.includes(String(operator).toLowerCase()) &&
+      !this.grammar.getOperators().includes(String(operator).toLowerCase())
   }
 
   /**
@@ -213,6 +241,24 @@ module.exports = class Builder {
   _invalidOperatorAndValue (operator, value) {
     return value === null && this.operators.includes(operator) &&
       !['=', '<>', '!='].includes(operator)
+  }
+
+  /**
+   * Parse the sub-select query into SQL and bindings.
+   *
+   * @param  {*}  query
+   * @return {array}
+   */
+  _parseSubSelect (query) {
+    if (query instanceof this.constructor) {
+      query.columns = [query.columns[0]]
+
+      return [query.toSql(), query.getBindings()]
+    } else if (Helper.isString(query)) {
+      return [query, []]
+    } else {
+      throw new Error('Invalid Argument Exception')
+    }
   }
 
   /**
@@ -236,6 +282,27 @@ module.exports = class Builder {
   }
 
   /**
+   * Run a pagination count query.
+   *
+   * @param  {array}  columns
+   * @return {array}
+   */
+  _runPaginationCountQuery (columns = ['*']) {
+    // We need to save the original bindings, because the cloneWithoutBindings
+    // method delete them from the builder object
+    const bindings = Object.assign({}, this.bindings)
+
+    return this.cloneWithout(['columns', 'orders', 'limit', 'offset'])
+      .cloneWithoutBindings(['select', 'order'])
+      ._setAggregate('count', this._withoutSelectAliases(columns))
+      .get().then((result) => {
+        this.bindings = bindings
+
+        return result.all()
+      })
+  }
+
+  /**
    * Run the query as a "select" statement against the connection.
    *
    * @return {Promise}
@@ -245,6 +312,28 @@ module.exports = class Builder {
       this.toSql(),
       this.getBindings()
     )
+  }
+
+  /**
+   * Set the aggregate property without running the query.
+   *
+   * @param  {string}  functionName
+   * @param  {array}  columns
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _setAggregate (functionName, columns) {
+    this.aggregateProperty = {
+      functionName,
+      columns
+    }
+
+    if (Helper.empty(this.groups)) {
+      this.orders = undefined
+
+      this.bindings['order'] = []
+    }
+
+    return this
   }
 
   /**
@@ -335,6 +424,21 @@ module.exports = class Builder {
   }
 
   /**
+   * Remove the column aliases since they will break count queries.
+   *
+   * @param  {array}  columns
+   * @return {array}
+   */
+  _withoutSelectAliases (columns) {
+    return columns.map((column) => {
+      const aliasPosition = column.toLowerCase().indexOf(' as ')
+
+      return Helper.isString(column) && (aliasPosition) !== -1
+        ? column.substr(0, aliasPosition) : column
+    })
+  }
+
+  /**
    * Add a binding to the query.
    *
    * @param  {*}   value
@@ -396,6 +500,33 @@ module.exports = class Builder {
   }
 
   /**
+   * Clone the query without the given properties.
+   *
+   * @param  {array}  except
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  cloneWithout (except) {
+    return Helper.tap(Helper.clone(this), (clone) => {
+      for (let property of except) {
+        clone[property] = undefined
+      }
+    })
+  }
+  /**
+   * Clone the query without the given bindings.
+   *
+   * @param  {array}  except
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  cloneWithoutBindings (except) {
+    return Helper.tap(Helper.clone(this), (clone) => {
+      for (let type of except) {
+        clone.bindings[type] = []
+      }
+    })
+  }
+
+  /**
    * Force the query to only return distinct results.
    *
    * @return {\Kiirus\Database\Query\Builder|static}
@@ -425,6 +556,17 @@ module.exports = class Builder {
     this.table = table
 
     return this
+  }
+
+  /**
+   * Set the limit and offset for a given page.
+   *
+   * @param  {number}  page
+   * @param  {number}  perPage
+   * @return {\Illuminate\Database\Query\Builder}
+   */
+  forPage (page, perPage = 15) {
+    return this.skip((page - 1) * perPage).take(perPage)
   }
 
   /**
@@ -466,6 +608,30 @@ module.exports = class Builder {
   }
 
   /**
+   * Get the count of the total records for the paginator.
+   *
+   * @param  {array}  columns
+   * @return {number}
+   */
+  getCountForPagination (columns = ['*']) {
+    return this._runPaginationCountQuery(columns).then((results) => {
+      // Once we have run the pagination count query, we will get the resulting count and
+      // take into account what type of query it was. When there is a group by we will
+      // just return the count of the entire results set since that will be correct.
+      if (Helper.isSet(this.groups) && this.groups.length > 0) {
+        return results.length
+      } else if (!Helper.isSet(results[0])) {
+        return 0
+      } else if (Helper.isObject(results[0])) {
+        return Number(results[0].aggregate)
+      }/*  else {
+        return Number(results[0]['aggregate'])
+      } */
+      // TODO: Verify this condition
+    })
+  }
+
+  /**
    * Get the query grammar instance.
    *
    * @return {\Kiirus\Database\Query\Grammars\Grammar}
@@ -484,6 +650,86 @@ module.exports = class Builder {
   }
 
   /**
+   * Add a "group by" clause to the query.
+   *
+   * @param  {array}  ...groups
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  groupBy (...groups) {
+    for (let group of groups) {
+      this.groups = Helper.merge(
+        this.groups,
+        Arr.wrap(group)
+      )
+    }
+
+    return this
+  }
+
+  /**
+   * Add a "having" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {string|null}  operator
+   * @param  {string|null}  value
+   * @param  {string}  booleanOperator
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  having (column, operator = undefined, value = undefined, booleanOperator = 'and') {
+    // Here we will make some assumptions about the operator. If only 2 values are
+    // passed to the method, we will assume that the operator is an equals sign
+    // and keep going. Otherwise, we'll require the operator to be passed in.
+    [value, operator] = this._prepareValueAndOperator(
+      value, operator, arguments.length === 2
+    )
+
+    // If the given operator is not found in the list of valid operators we will
+    // assume that the developer is just short-cutting the '=' operators and
+    // we will set the operators to '=' and set the values appropriately.
+    if (this._invalidOperator(operator)) {
+      [value, operator] = [operator, '=']
+    }
+
+    const type = 'Basic'
+
+    this.havings.push({
+      type,
+      column,
+      operator,
+      value,
+      'boolean': booleanOperator
+    })
+
+    if (!(value instanceof Expression)) {
+      this.addBinding(value, 'having')
+    }
+
+    return this
+  }
+
+  /**
+   * Add a raw having clause to the query.
+   *
+   * @param  {string}  sql
+   * @param  {array}   bindings
+   * @param  {string}  booleanOperator
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  havingRaw (sql, bindings = [], booleanOperator = 'and') {
+    const type = 'Raw'
+
+    this.havings.push({
+      type,
+      sql,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(bindings, 'having')
+
+    return this
+  }
+
+  /**
    * Add a join clause to the query.
    *
    * @param  {string}  table
@@ -494,7 +740,7 @@ module.exports = class Builder {
    * @param  {boolean}    where
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  join (table, first, operator = null, second = null, type = 'inner', where = false) {
+  join (table, first, operator = undefined, second = undefined, type = 'inner', where = false) {
     const join = new JoinClause(this, type, table)
 
     // If the first "column" of the join is really a Closure instance the developer
@@ -546,6 +792,20 @@ module.exports = class Builder {
   }
 
   /**
+   * Set the "offset" value of the query.
+   *
+   * @param  {number}  value
+   * @return this
+   */
+  offset (value) {
+    const property = this.unions.length > 0 ? 'unionOffset' : 'offsetProperty'
+
+    this[property] = Math.max(0, value)
+
+    return this
+  }
+
+  /**
    * Add an "order by" clause to the query.
    *
    * @param  {string}  column
@@ -562,6 +822,56 @@ module.exports = class Builder {
   }
 
   /**
+   * Add a descending "order by" clause to the query.
+   *
+   * @param  {string}  column
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  orderByDesc (column) {
+    return this.orderBy(column, 'desc')
+  }
+
+  /**
+   * Add a raw "order by" clause to the query.
+   *
+   * @param  {string}  sql
+   * @param  {array}  bindings
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  orderByRaw (sql, bindings = []) {
+    const type = 'Raw'
+
+    this[this.unions ? 'unionOrders' : 'orders'].push({type, sql})
+
+    this.addBinding(bindings, 'order')
+
+    return this
+  }
+
+  /**
+   * Add a "or having" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {string|null}  operator
+   * @param  {string|null } value
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  orHaving (column, operator = undefined, value = undefined) {
+    return this.having(column, operator, value, 'or')
+  }
+
+  /**
+   * Add a raw or having clause to the query.
+   *
+   * @param  {string}  sql
+   * @param  {array}   bindings
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  orHavingRaw (sql, bindings = []) {
+    return this.havingRaw(sql, bindings, 'or')
+  }
+
+  /**
    * Add an "or where" clause to the query.
    *
    * @param  {string|array|function}  column
@@ -569,7 +879,7 @@ module.exports = class Builder {
    * @param  {*}   value
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  orWhere (column, operator = null, value = null) {
+  orWhere (column, operator = undefined, value = undefined) {
     return this.where(column, operator, value, 'or')
   }
 
@@ -581,7 +891,7 @@ module.exports = class Builder {
    * @param  {string|null}  second
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  orWhereColumn (first, operator = null, second = null) {
+  orWhereColumn (first, operator = undefined, second = undefined) {
     return this.whereColumn(first, operator, second, 'or')
   }
 
@@ -608,6 +918,26 @@ module.exports = class Builder {
   }
 
   /**
+   * Add an "or where not null" clause to the query.
+   *
+   * @param  {string}  column
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  orWhereNotNull (column) {
+    return this.whereNotNull(column, 'or')
+  }
+
+  /**
+   * Add an "or where null" clause to the query.
+   *
+   * @param  {string}  column
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  orWhereNull (column) {
+    return this.whereNull(column, 'or')
+  }
+
+  /**
    * Add a raw or where clause to the query.
    *
    * @param  {string}  sql
@@ -628,6 +958,76 @@ module.exports = class Builder {
     this.columns = Array.isArray(columns) ? columns : Array.from(arguments)
 
     return this
+  }
+
+  /**
+   * Add a new "raw" select expression to the query.
+   *
+   * @param  {string}  expression
+   * @param  {array}   bindings
+   * @return {\Illuminate\Database\Query\Builder}
+   */
+  selectRaw (expression, bindings = []) {
+    this.addSelect(new Expression(expression))
+
+    if (bindings) {
+      this.addBinding(bindings, 'select')
+    }
+
+    return this
+  }
+
+  /**
+   * Add a subselect expression to the query.
+   *
+   * @param  {\function|\Kiirus\Database\Query\Builder|string} query
+   * @param  {string}  as
+   * @return {\Kiirus\Database\Query\Builder}
+   *
+   * @throws {\InvalidArgumentException}
+   */
+  selectSub (query, as) {
+    // If the given query is a Closure, we will execute it while passing in a new
+    // query instance to the Closure. This will give the developer a chance to
+    // format and work with the query before we cast it to a raw SQL string.
+    if (typeof query === 'function') {
+      const callback = query
+
+      query = this.newQuery()
+
+      callback(query)
+    }
+
+    // Here, we will parse this query into an SQL string and an array of bindings
+    // so we can add it to the query builder using the selectRaw method so the
+    // query is included in the real SQL generated by this builder instance.
+    let bindings
+
+    [query, bindings] = this._parseSubSelect(query)
+
+    return this.selectRaw(
+      '(' + query + ') as ' + this.grammar.wrap(as), bindings
+    )
+  }
+
+  /**
+   * Alias to set the "offset" value of the query.
+   *
+   * @param  {number}  value
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  skip (value) {
+    return this.offset(value)
+  }
+
+  /**
+   * Alias to set the "limit" value of the query.
+   *
+   * @param  {number}  value
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  take (value) {
+    return this.limit(value)
   }
 
   /**
@@ -652,7 +1052,7 @@ module.exports = class Builder {
   /**
    * Add a union statement to the query.
    *
-   * @param  \Kiirus\Database\Query\Builder|static
+   * @param  {\Kiirus\Database\Query\Builder|static}
    */
   union (query, all = false) {
     if (typeof query === 'function') {
@@ -674,6 +1074,16 @@ module.exports = class Builder {
   }
 
   /**
+   * Add a union all statement to the query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder|function}  query
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  unionAll (query) {
+    return this.union(query, true)
+  }
+
+  /**
    * Apply the callback's query changes if the given "value" is false.
    *
    * @param  {*}  value
@@ -681,7 +1091,7 @@ module.exports = class Builder {
    * @param  {function}  default
    * @return {*}
    */
-  unless (value, callbackFunc, defaultValue = null) {
+  unless (value, callbackFunc, defaultValue = undefined) {
     if (!value) {
       const result = callbackFunc(this, value)
 
@@ -703,7 +1113,7 @@ module.exports = class Builder {
    * @param  {function}  defaultValue
    * @return {*}
    */
-  when (value, callbackFunc, defaultValue = null) {
+  when (value, callbackFunc, defaultValue = undefined) {
     if (value) {
       const result = callbackFunc(this, value)
 
@@ -728,11 +1138,11 @@ module.exports = class Builder {
    *
    * @throws {\InvalidArgumentException}
    */
-  where (column, operator = null, value = null, booleanOperator = 'and') {
+  where (column, operator = undefined, value = undefined, booleanOperator = 'and') {
     // If the column is an array, we will assume it is an array of key-value pairs
     // and can add them each as a where clause. We will maintain the boolean we
     // received when the method was called and pass it into the nested where.
-    if (Array.isArray(column) === true) {
+    if (Array.isArray(column) === true || Helper.isObject(column) === true) {
       return this._addArrayOfWheres(column, booleanOperator)
     }
 
@@ -827,7 +1237,7 @@ module.exports = class Builder {
    * @param  {string|null}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereColumn (first, operator = null, second = null, booleanOperator = 'and') {
+  whereColumn (first, operator = undefined, second = undefined, booleanOperator = 'and') {
     // If the column is an array, we will assume it is an array of key-value pairs
     // and can add them each as a where clause. We will maintain the boolean we
     // received when the method was called and pass it into the nested where.
@@ -867,7 +1277,7 @@ module.exports = class Builder {
    * @param  {string}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereDate (column, operator, value = null, booleanOperator = 'and') {
+  whereDate (column, operator, value = undefined, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
@@ -884,7 +1294,7 @@ module.exports = class Builder {
    * @param  {string}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder}
    */
-  whereDay (column, operator, value = null, booleanOperator = 'and') {
+  whereDay (column, operator, value = undefined, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
@@ -959,7 +1369,7 @@ module.exports = class Builder {
    * @param  {string}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereMonth (column, operator, value = null, booleanOperator = 'and') {
+  whereMonth (column, operator, value = undefined, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
@@ -992,6 +1402,37 @@ module.exports = class Builder {
   }
 
   /**
+   * Add a "where not null" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}  booleanOperator
+   * @return {\Kiirus\Database\Query\Builder|static}
+   */
+  whereNotNull (column, booleanOperator = 'and') {
+    return this.whereNull(column, booleanOperator, true)
+  }
+
+  /**
+   * Add a "where null" clause to the query.
+   *
+   * @param  {string}  column
+   * @param  {string}  booleanOperator
+   * @param  {boolean} not
+   * @return {this}
+   */
+  whereNull (column, booleanOperator = 'and', not = false) {
+    const type = not ? 'NotNull' : 'Null'
+
+    this.wheres.push({
+      type,
+      column,
+      'boolean': booleanOperator
+    })
+
+    return this
+  }
+
+  /**
    * Add a raw where clause to the query.
    *
    * @param  {string}  sql
@@ -1020,7 +1461,7 @@ module.exports = class Builder {
    * @param  {string}  booleanOperator
    * @return {\Kiirus\Database\Query\Builder|static}
    */
-  whereYear (column, operator, value = null, booleanOperator = 'and') {
+  whereYear (column, operator, value = undefined, booleanOperator = 'and') {
     [value, operator] = this._prepareValueAndOperator(
       value, operator, arguments.length === 2
     )
@@ -1041,22 +1482,6 @@ module.exports = class Builder {
     callback(query)
 
     return this.addNestedWhereQuery(query, booleanOperator)
-  }
-
-  /**
-   * Add a "where null" clause to the query.
-   *
-   * @param  {string}  column
-   * @param  {string}  booleanOperator
-   * @param  {boolean}    not
-   * @return {this}
-   */
-  whereNull (column, booleanOperator = 'and', not = false) {
-    const type = not ? 'NotNull' : 'Null'
-
-    this.wheres.push({type, column, booleanOperator})
-
-    return this
   }
 
   /**

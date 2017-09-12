@@ -204,4 +204,14 @@ module.exports = class Arr {
         return res
       }, {})
   }
+
+  /**
+   * If the given value is not an array, wrap it in one.
+   *
+   * @param  {*}  value
+   * @return {array}
+   */
+  static wrap (value) {
+    return !Array.isArray(value) ? [value] : value
+  }
 }

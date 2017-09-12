@@ -1,5 +1,7 @@
 'use strict'
 
+const HigherOrderTapProxy = require('./HigherOrderTapProxy')
+
 module.exports = class Helper {
   /**
    * Clone a object
@@ -9,6 +11,9 @@ module.exports = class Helper {
    */
   static clone (value) {
     let copy = Object.create(Object.getPrototypeOf(value))
+    // let copy = Object.assign({}, value)
+
+    // Object.setPrototypeOf(copy, Object.getPrototypeOf(value))
 
     Object.getOwnPropertyNames(value).forEach(propName => {
       Object.defineProperty(copy, propName, Object.getOwnPropertyDescriptor(value, propName))
@@ -25,7 +30,7 @@ module.exports = class Helper {
    */
   static empty (data) {
     if (undefined === data || data === null || data === '' ||
-      !!data === false || data.length === 0
+      Boolean(data) === false || data.length === 0
     ) {
       return true
     }
@@ -184,5 +189,22 @@ module.exports = class Helper {
     }
 
     return retObj
+  }
+
+  /**
+   * Call the given Closure with the given value then return the value.
+   *
+   * @param  {*}  value
+   * @param  {function|undefined}  callback
+   * @return {*}
+   */
+  static tap (value, callback = undefined) {
+    if (callback === undefined) {
+      return new HigherOrderTapProxy(value)
+    }
+
+    callback(value)
+
+    return value
   }
 }

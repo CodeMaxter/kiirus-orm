@@ -52,11 +52,25 @@ module.exports = class Grammar extends BaseGrammar {
     // If the query has a "distinct" constraint and we're not asking for all columns
     // we need to prepend "distinct" onto the column name so that the query takes
     // it into account when it performs the aggregating operations on the data.
-    if (query.distinct && column !== '*') {
+    if (query.distinctProperty && column !== '*') {
       column = 'distinct ' + column
     }
 
     return 'select ' + aggregate.functionName + '(' + column + ') as aggregate'
+  }
+
+  /**
+   * Compile a basic having clause.
+   *
+   * @param  {array}   having
+   * @return {string}
+   */
+  _compileBasicHaving (having) {
+    const column = this.wrap(having.column)
+
+    const parameter = this.parameter(having.value)
+
+    return having.boolean + ' ' + column + ' ' + having.operator + ' ' + parameter
   }
 
   /**
@@ -71,7 +85,7 @@ module.exports = class Grammar extends BaseGrammar {
     // compiler handle the building of the select clauses, as it will need some
     // more syntax that is best handled by that function to keep things neat.
     if (query.aggregateProperty !== undefined) {
-      return
+      return ''
     }
 
     let select = query.distinctProperty ? 'select distinct ' : 'select '
@@ -92,9 +106,7 @@ module.exports = class Grammar extends BaseGrammar {
       // To compile the query, we'll spin through each component of the query and
       // see if that component exists. If it does we'll just call the compiler
       // function for the component which is responsible for making the SQL.
-      if (query[component.translated] !== undefined &&
-        query[component.translated].length > 0
-      ) {
+      if (query[component.translated] === 0 || !Helper.empty(query[component.translated])) {
         const method = '_compile' + Str.ucfirst(component.name)
 
         sql[component.name] = this[method](query, query[component.translated])
@@ -113,6 +125,47 @@ module.exports = class Grammar extends BaseGrammar {
    */
   _compileFrom (query, table) {
     return 'from ' + this.wrapTable(table)
+  }
+
+  /**
+   * Compile the "group by" portions of the query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  groups
+   * @return {string}
+   */
+  _compileGroups (query, groups) {
+    return 'group by ' + this.columnize(groups)
+  }
+
+  /**
+   * Compile a single having clause.
+   *
+   * @param  {array}   having
+   * @return {string}
+   */
+  _compileHaving (having) {
+    // If the having clause is "raw", we can just return the clause straight away
+    // without doing any more processing on it. Otherwise, we will compile the
+    // clause into SQL based on the components that make it up from builder.
+    if (having.type === 'Raw') {
+      return having.boolean + ' ' + having.sql
+    }
+
+    return this._compileBasicHaving(having)
+  }
+
+  /**
+   * Compile the "having" portions of the query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  havings
+   * @return {string}
+   */
+  _compileHavings (query, havings) {
+    const sql = havings.map(this._compileHaving.bind(this)).join(' ')
+
+    return 'having ' + this._removeLeadingBoolean(sql)
   }
 
   /**
@@ -344,7 +397,7 @@ module.exports = class Grammar extends BaseGrammar {
   /**
    * Compile a where clause comparing two columns..
    *
-   * @param  {\Illuminate\Database\Query\Builder}  query
+   * @param  {{\Kiirus\Database\Query\Builder}}  query
    * @param  {array}  where
    * @return {string}
    */
@@ -390,6 +443,30 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile a where in sub-select clause.
+   *
+   * @param  {{\Kiirus\Database\Query\Builder}}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereInSub (query, where) {
+    return this.wrap(where.column) + ' in (' + this.compileSelect(where.query) + ')'
+  }
+
+  /**
+   * Compile a where condition with a sub-select.
+   *
+   * @param  {\Kiirus\Database\Query\Builder} query
+   * @param  {array}   where
+   * @return {string}
+   */
+  _whereSub (query, where) {
+    const select = this.compileSelect(where['query'])
+
+    return this.wrap(where.column) + ' ' + where.operator + ` (${select}s)`
+  }
+
+  /**
    * Compile a "where month" clause.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -429,6 +506,39 @@ module.exports = class Grammar extends BaseGrammar {
     }
 
     return '1 = 1'
+  }
+
+  /**
+   * Compile a where not in sub-select clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereNotInSub (query, where) {
+    return this.wrap(where.column) + ' not in (' + this.compileSelect(where.query) + ')'
+  }
+
+  /**
+   * Compile a "where not null" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereNotNull (query, where) {
+    return this.wrap(where.column) + ' is not null'
+  }
+
+  /**
+   * Compile a "where null" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereNull (query, where) {
+    return this.wrap(where.column) + ' is null'
   }
 
   /**

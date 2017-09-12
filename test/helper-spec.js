@@ -3,7 +3,14 @@
 const expect = require('chai').expect
 const Helper = require('./../Kiirus/Support/Helper')
 
+const createMock = require('./tools/auto-verify-mock').createMock
+const autoVerify = require('./tools/auto-verify-mock').autoVerify
+
 describe('Helper', () => {
+  afterEach(() => {
+    autoVerify()
+  })
+
   describe('#empty', function () {
     it('Empty variable', function () {
       expect(Helper.empty([])).to.equal(true)
@@ -139,6 +146,20 @@ describe('Helper', () => {
       // expect(Helper.merge([{'color': 'red'}, 2, 4], ['a', 'b', {'color': 'green'}, {'shape': 'trapezoid'}, 4])).to.deep.equal([{'color': 'green'}, 2, 4, 'a', 'b', {'shape': 'trapezoid'}, 4])
       // expect(Arr.merge([1, 2, 3], [4, 'c'])).to.deep.equal([4, 'c', 3])
       // expect(Arr.merge([1, 2, 3], [4, 5], [6, 'a', 7, 8, 9])).to.deep.equal([6, 'a', 7, 8, 9])
+    })
+  })
+
+  describe('#tap', () => {
+    it('Test Tap', () => {
+      const object = {'id': 1}
+      expect(2).to.be.equal(Helper.tap(object, (object) => {
+        object.id = 2
+      }).id)
+
+      const target = {foo: () => {}}
+      const mock = createMock(target)
+      mock.expects('foo').once().returns('bar')
+      expect(target).to.be.deep.equal(Helper.tap(target).foo())
     })
   })
 })
