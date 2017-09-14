@@ -10,12 +10,6 @@ module.exports = class JoinClause {
    * @return {void}
    */
   constructor (parentQuery, type, table) {
-    // this.builder = new parentQuery.constructor(
-    //   parentQuery.getConnection(),
-    //   parentQuery.getGrammar(),
-    //   parentQuery.getProcessor()
-    // )
-
     /**
      * The parent query builder instance.
      *
@@ -43,36 +37,35 @@ module.exports = class JoinClause {
       parentQuery.getProcessor()
     )
 
-    Object.setPrototypeOf(Object.getPrototypeOf(this), builder)
+    return new Proxy(this, {
+      get (target, property, receiver) {
+        if (Reflect.has(target, property)) {
+          return Reflect.get(target, property)
+        } else {
+          if (Reflect.has(builder, property)) {
+            return Reflect.get(builder, property)
+          }
+        }
+      }
+    })
+  }
 
-    // let joinClause = Object.assign(this)
-    // Object.setPrototypeOf(Object.getPrototypeOf(joinClause), builder)
-    // return joinClause
+  /**
+   * Create a new query instance for sub-query.
+   *
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _forSubQuery () {
+    return this.parentQuery.newQuery()
+  }
 
-    // let joinClause = new this.constructor(parentQuery, type, table)
-    // Object.setPrototypeOf(this, builder)
-
-    // return joinClause
-
-    // return new Proxy(this, {
-    //   get (target, property, receiver) {
-    //     if (Reflect.has(target, property)) {
-    //       return Reflect.get(target, property)
-    //     } else {
-    //       const builder = new parentQuery.constructor(
-    //         parentQuery.getConnection(),
-    //         parentQuery.getGrammar(),
-    //         parentQuery.getProcessor()
-    //       )
-
-    //       let joinClause = new target.constructor(parentQuery, type, table)
-    //       Object.setPrototypeOf(joinClause, Object.getPrototypeOf(builder))
-
-    //       // return builder[property].bind(builder)
-    //       return joinClause[property].bind(joinClause)
-    //     }
-    //   }
-    // })
+  /**
+   * Get a new instance of the join clause builder.
+   *
+   * @return {\Kiirus\Database\Query\JoinClause}
+   */
+  newQuery () {
+    return new this.constructor(this.parentQuery, this.type, this.table)
   }
 
   /**
@@ -101,5 +94,17 @@ module.exports = class JoinClause {
     }
 
     return this.whereColumn(first, operator, second, boolean)
+  }
+
+  /**
+   * Add an "or on" clause to the join.
+   *
+   * @param  {function|string}  first
+   * @param  {string|undefined}  operator
+   * @param  {string|undefined}  second
+   * @return {\Kiirus\Database\Query\JoinClause}
+   */
+  orOn (first, operator = null, second = null) {
+    return this.on(first, operator, second, 'or')
   }
 }

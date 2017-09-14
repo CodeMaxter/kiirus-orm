@@ -87,8 +87,8 @@ module.exports = class PostgresGrammar extends Grammar {
   /**
    * Compile the "from" clause for an update with a join.
    *
-   * @param  {\Kiirus\Database\Query\Builder}  $query
-   * @return {string|null}
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string|undefined}
    */
   _compileUpdateFrom (query) {
     if (!Helper.isSet(query.joins)) {

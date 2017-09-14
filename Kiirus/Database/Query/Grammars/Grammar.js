@@ -100,7 +100,7 @@ module.exports = class Grammar extends BaseGrammar {
    * @return {object}
    */
   _compileComponents (query) {
-    const sql = []
+    const sql = {}
 
     this._selectComponents.map((component) => {
       // To compile the query, we'll spin through each component of the query and
@@ -428,6 +428,17 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile a where exists clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereExists (query, where) {
+    return 'exists (' + this.compileSelect(where.query) + ')'
+  }
+
+  /**
    * Compile a "where in" clause.
    *
    * @param  {\Kirus\Database\Query\Builder}  query
@@ -491,6 +502,17 @@ module.exports = class Grammar extends BaseGrammar {
     const offset = query instanceof JoinClause ? 3 : 6
 
     return '(' + this._compileWheres(where['query']).substr(offset) + ')'
+  }
+
+  /**
+   * Compile a where exists clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereNotExists (query, where) {
+    return 'not exists (' + this.compileSelect(where.query) + ')'
   }
 
   /**

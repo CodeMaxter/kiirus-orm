@@ -500,6 +500,28 @@ module.exports = class Builder {
   }
 
   /**
+   * Add an exists clause to the query.
+   *
+   * @param  {\Kiirus\Database\Query\Builder} query
+   * @param  {string}  booleanOperator
+   * @param  {boolean}  not
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  addWhereExistsQuery (query, booleanOperator = 'and', not = false) {
+    const type = not ? 'NotExists' : 'Exists'
+
+    this.wheres.push({
+      type,
+      query,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(query.getBindings(), 'where')
+
+    return this
+  }
+
+  /**
    * Clone the query without the given properties.
    *
    * @param  {array}  except
@@ -512,6 +534,7 @@ module.exports = class Builder {
       }
     })
   }
+
   /**
    * Clone the query without the given bindings.
    *
@@ -524,6 +547,25 @@ module.exports = class Builder {
         clone.bindings[type] = []
       }
     })
+  }
+
+  /**
+   * Add a "cross join" clause to the query.
+   *
+   * @param  {string}  table
+   * @param  {string|undefined}  first
+   * @param  {string|undefined}  operator
+   * @param  {string|undefined}  second
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  crossJoin (table, first = null, operator = null, second = null) {
+    if (first) {
+      return this.join(table, first, operator, second, 'cross')
+    }
+
+    this.joins.push(new JoinClause(this, 'cross', table))
+
+    return this
   }
 
   /**
@@ -767,6 +809,46 @@ module.exports = class Builder {
   }
 
   /**
+   * Add a "join where" clause to the query.
+   *
+   * @param  {string}  table
+   * @param  {string}  first
+   * @param  {string}  operator
+   * @param  {string}  second
+   * @param  {string}  type
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  joinWhere (table, first, operator, second, type = 'inner') {
+    return this.join(table, first, operator, second, type, true)
+  }
+
+  /**
+   * Add a left join to the query.
+   *
+   * @param  {string}  table
+   * @param  {string}  first
+   * @param  {string|null}  operator
+   * @param  {string|null}  second
+   * @return {\Illuminate\Database\Query\Builder}
+   */
+  leftJoin (table, first, operator = null, second = null) {
+    return this.join(table, first, operator, second, 'left')
+  }
+
+  /**
+   * Add a "join where" clause to the query.
+   *
+   * @param  string  table
+   * @param  string  first
+   * @param  string  operator
+   * @param  string  second
+   * @return {\Illuminate\Database\Query\Builder}
+   */
+  leftJoinWhere (table, first, operator, second) {
+    return this.joinWhere(table, first, operator, second, 'left')
+  }
+
+  /**
    * Set the "limit" value of the query.
    *
    * @param  {number}  value
@@ -896,6 +978,17 @@ module.exports = class Builder {
   }
 
   /**
+   * Add an or exists clause to the query.
+   *
+   * @param  {function} callback
+   * @param  {boolean}  not
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  orWhereExists (callback, not = false) {
+    return this.whereExists(callback, 'or', not)
+  }
+
+  /**
    * Add an "or where in" clause to the query.
    *
    * @param  {string}  column
@@ -904,6 +997,16 @@ module.exports = class Builder {
    */
   orWhereIn (column, values) {
     return this.whereIn(column, values, 'or')
+  }
+
+  /**
+   * Add a where not exists clause to the query.
+   *
+   * @param  {function}  callback
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  orWhereNotExists (callback) {
+    return this.orWhereExists(callback, true)
   }
 
   /**
@@ -1174,17 +1277,17 @@ module.exports = class Builder {
       return this._whereSub(column, operator, value, booleanOperator)
     }
 
-    // If the value is "null", we will just assume the developer wants to add a
-    // where null clause to the query. So, we will allow a short-cut here to
-    // that method for convenience so the developer doesn't have to check.
-    if (value === null) {
+    // If the value is "undefined", we will just assume the developer wants to
+    // add a where null clause to the query. So, we will allow a short-cut here
+    // to that method for convenience so the developer doesn't have to check.
+    if (value === undefined) {
       return this.whereNull(column, booleanOperator, operator !== '=')
     }
 
     // If the column is making a JSON reference we'll check to see if the value
     // is a boolean. If it is, we'll add the raw boolean string as an actual
     // value to the query to ensure this is properly handled by the query.
-    if (column.includes(column, '.') && typeof value === 'boolean') {
+    if (column.includes('.') && typeof value === 'boolean') {
       value = new Expression(value ? 'true' : 'false')
     }
 
@@ -1194,7 +1297,11 @@ module.exports = class Builder {
     const type = 'Basic'
 
     this.wheres.push({
-      type, column, operator, value, 'boolean': booleanOperator
+      type,
+      column,
+      operator,
+      value,
+      'boolean': booleanOperator
     })
 
     if (value instanceof Expression === false) {
@@ -1303,6 +1410,25 @@ module.exports = class Builder {
   }
 
   /**
+   * Add an exists clause to the query.
+   *
+   * @param  {function} callback
+   * @param  {string}   boolean
+   * @param  {boolean}     not
+   * @return {this}
+   */
+  whereExists (callback, boolean = 'and', not = false) {
+    const query = this.newQuery()
+
+    // Similar to the sub-select clause, we will create a new query instance so
+    // the developer may cleanly specify the entire exists query and we will
+    // compile the whole thing in the grammar and insert it into the SQL.
+    callback(query)
+
+    return this.addWhereExistsQuery(query, boolean, not)
+  }
+
+  /**
    * Add a "where in" clause to the query.
    *
    * @param  {string}  column
@@ -1321,7 +1447,7 @@ module.exports = class Builder {
     // If the value is a query builder instance we will assume the developer wants to
     // look for any values that exists within this given query. So we will add the
     // query accordingly so that this query is properly executed when it is run.
-    if (values instanceof this.constructor) {
+    if (values instanceof Builder) {
       return this._whereInExistingQuery(
         column, values, booleanOperator, not
       )
@@ -1387,6 +1513,17 @@ module.exports = class Builder {
    */
   whereNotBetween (column, values, booleanOperator = 'and') {
     return this.whereBetween(column, values, booleanOperator, true)
+  }
+
+  /**
+   * Add a where not exists clause to the query.
+   *
+   * @param  {function} callback
+   * @param  {string}   booleanOperator
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  whereNotExists (callback, booleanOperator = 'and') {
+    return this.whereExists(callback, booleanOperator, true)
   }
 
   /**
