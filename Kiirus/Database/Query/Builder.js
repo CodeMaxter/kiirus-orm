@@ -219,6 +219,15 @@ module.exports = class Builder {
   }
 
   /**
+   * Create a new query instance for a sub-query.
+   *
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _forSubQuery () {
+    return this.newQuery()
+  }
+
+  /**
    * Determine if the given operator is supported.
    *
    * @param  {string}  operator
@@ -337,6 +346,16 @@ module.exports = class Builder {
   }
 
   /**
+   * Strip off the table name or alias from a column identifier.
+   *
+   * @param  {string}  column
+   * @return {string|undefined}
+   */
+  _stripTableForPluck (column) {
+    return column === undefined ? column : Helper.last(column.split(/~\.| ~/gi))
+  }
+
+  /**
    * Add an external sub-select to the query.
    *
    * @param  {string}   column
@@ -375,7 +394,7 @@ module.exports = class Builder {
     // To create the exists sub-select, we will actually create a query and call the
     // provided callback with the query so the developer may set any of the query
     // conditions they want for the in clause, then we'll put it in this array.
-    const query = this.newQuery()
+    const query = this._forSubQuery()
 
     callback(query)
 
@@ -403,7 +422,7 @@ module.exports = class Builder {
   _whereSub (column, operator, callback, booleanOperator) {
     const type = 'Sub'
 
-    const query = this.newQuery()
+    const query = this._forSubQuery()
 
     // Once we have the query instance we can simply execute it so it can add all
     // of the sub-select's conditions to itself, and then we can cache it off
@@ -494,7 +513,7 @@ module.exports = class Builder {
   addSelect (column) {
     column = Array.isArray(column) ? column : Array.from(arguments)
 
-    this.columns = Helper.merge(this.columns, column)
+    this.columns = Helper.merge(this.columns || [], column)
 
     return this
   }
@@ -519,6 +538,24 @@ module.exports = class Builder {
     this.addBinding(query.getBindings(), 'where')
 
     return this
+  }
+
+  /**
+   * Execute an aggregate function on the database.
+   *
+   * @param  {string}  functionName
+   * @param  {array}   columns
+   * @return {*}
+   */
+  aggregate (functionName, columns = ['*']) {
+    return this.cloneWithout(['columns'])
+      .cloneWithoutBindings(['select'])
+      ._setAggregate(functionName, columns)
+      .get(columns).then((results) => {
+        if (!results.isEmpty()) {
+          return Number(Helper.changeKeyCase(results[0])['aggregate'])
+        }
+      })
   }
 
   /**
@@ -569,14 +606,69 @@ module.exports = class Builder {
   }
 
   /**
+   * Retrieve the "count" result of the query.
+   *
+   * @param  {string}  columns
+   * @return {number}
+   */
+  count (columns = '*') {
+    return this.aggregate('count', Arr.wrap(columns))
+  }
+
+  /**
    * Force the query to only return distinct results.
    *
-   * @return {\Kiirus\Database\Query\Builder|static}
+   * @return {\Kiirus\Database\Query\Builder}
    */
   distinct () {
     this.distinctProperty = true
 
     return this
+  }
+
+  /**
+   * Determine if any rows exist for the current query.
+   *
+   * @return {boolean}
+   */
+  exists () {
+    return this.connection.select(
+      this.grammar.compileExists(this), this.getBindings()
+    ).then((results) => {
+      // If the results has rows, we will get the row and see if the exists column is a
+      // boolean true. If there is no results for this query we will return false as
+      // there are no rows for this query at all and we can return that info here.
+      if (Helper.isSet(results[0])) {
+        results = results[0]
+
+        return Boolean(results.exists)
+      }
+
+      return false
+    })
+  }
+
+  /**
+   * Execute a query for a single record by ID.
+   *
+   * @param  {number} id
+   * @param  {array}  columns
+   * @return {Promise</Kiirus/Database/Ceres/Collection>}
+   */
+  find (id, columns = ['*']) {
+    return this.where('id', '=', id).first(columns)
+  }
+
+  /**
+   * Execute the query and get the first result.
+   *
+   * @param  array  columns
+   * @return {\Illuminate\Database\Eloquent\Model|\Kiirus\Database\Query\Builder|undefined}
+   */
+  first (columns = ['*']) {
+    return this.take(1).get(columns).then((results) => {
+      return results.first()
+    })
   }
 
   /**
@@ -620,7 +712,7 @@ module.exports = class Builder {
   get (columns = ['*']) {
     const original = this.columns
 
-    if (original === null) {
+    if (original === undefined) {
       this.columns = columns
     }
 
@@ -772,6 +864,19 @@ module.exports = class Builder {
   }
 
   /**
+   * Concatenate values of a given column as a string.
+   *
+   * @param  {string}  column
+   * @param  {string}  glue
+   * @return {string}
+   */
+  implode (column, glue = '') {
+    return this.pluck(column).then((results) => {
+      return results.implode(glue)
+    })
+  }
+
+  /**
    * Add a join clause to the query.
    *
    * @param  {string}  table
@@ -865,12 +970,32 @@ module.exports = class Builder {
   }
 
   /**
+   * Retrieve the minimum value of a given column.
+   *
+   * @param  {string}  column
+   * @return {*}
+   */
+  min (column) {
+    return this.aggregate('min', [column])
+  }
+
+  /**
+   * Retrieve the maximum value of a given column.
+   *
+   * @param  {string}  column
+   * @return {*}
+   */
+  max (column) {
+    return this.aggregate('max', [column])
+  }
+
+  /**
    * Get a new instance of the query builder.
    *
    * @return {\Kiirus\Database\Query\Builder}
    */
   newQuery () {
-    return new this.constructor(this.connection, this.grammar, this.processor)
+    return new Builder(this.connection, this.grammar, this.processor)
   }
 
   /**
@@ -1052,6 +1177,25 @@ module.exports = class Builder {
   }
 
   /**
+   * Get an array with the values of a given column.
+   *
+   * @param  {string}  column
+   * @param  {string|undefined}  key
+   * @return Promise<{\Kiirus\Support\Collection}>
+   */
+  pluck (column, key = undefined) {
+    return this.get(key === undefined ? [column] : [column, key]).then((results) => {
+      // If the columns are qualified with a table or have an alias, we cannot use
+      // those directly in the "pluck" operations since the results from the DB
+      // are only keyed by the column itself. We'll strip the table out here.
+      return results.pluck(
+        this._stripTableForPluck(column),
+        this._stripTableForPluck(key)
+      )
+    })
+  }
+
+  /**
    * Set the columns to be selected.
    *
    * @param  {array|*}  columns
@@ -1096,7 +1240,7 @@ module.exports = class Builder {
     if (typeof query === 'function') {
       const callback = query
 
-      query = this.newQuery()
+      query = this._forSubQuery()
 
       callback(query)
     }
@@ -1121,6 +1265,18 @@ module.exports = class Builder {
    */
   skip (value) {
     return this.offset(value)
+  }
+
+  /**
+   * Retrieve the sum of the values of a given column.
+   *
+   * @param  {string}  column
+   * @return {*}
+   */
+  sum (column) {
+    return this.aggregate('sum', [column]).then((result) => {
+      return result || 0
+    })
   }
 
   /**
@@ -1206,6 +1362,18 @@ module.exports = class Builder {
     }
 
     return this
+  }
+
+  /**
+   * Get a single column's value from the first result of a query.
+   *
+   * @param  {string}  column
+   * @return {*}
+   */
+  value (column) {
+    return this.first([column]).then((result) => {
+      return Object.keys(result).length > 0 ? result[column] : undefined
+    })
   }
 
   /**
@@ -1418,7 +1586,7 @@ module.exports = class Builder {
    * @return {this}
    */
   whereExists (callback, boolean = 'and', not = false) {
-    const query = this.newQuery()
+    const query = this._forSubQuery()
 
     // Similar to the sub-select clause, we will create a new query instance so
     // the developer may cleanly specify the entire exists query and we will

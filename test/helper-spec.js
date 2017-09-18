@@ -11,6 +11,16 @@ describe('Helper', () => {
     autoVerify()
   })
 
+  describe('#changeKeyCase', function () {
+    it('Changes The Case Of All Keys In An Object', function () {
+      const target = {'FirSt': 1, 'SecOnd': 4}
+      const result = {'FIRST': 1, 'SECOND': 4}
+
+      expect(Helper.changeKeyCase(target, 'CASE_UPPER')).to.deep.equal(result)
+      expect(Helper.changeKeyCase({'FuBaR': 1}, 'CASE_LOWER')).to.deep.equal({'fubar': 1})
+    })
+  })
+
   describe('#empty', function () {
     it('Empty variable', function () {
       expect(Helper.empty([])).to.equal(true)
@@ -129,6 +139,13 @@ describe('Helper', () => {
     })
   })
 
+  describe('#last', () => {
+    it('Test Last', () => {
+      const array = ['a', 'b', 'c']
+      expect(Helper.last(array)).to.be.equal('c')
+    })
+  })
+
   describe('#merge', () => {
     it('Merge', () => {
       let result = []
@@ -160,6 +177,15 @@ describe('Helper', () => {
       const mock = createMock(target)
       mock.expects('foo').once().returns('bar')
       expect(target).to.be.deep.equal(Helper.tap(target).foo())
+    })
+  })
+
+  describe('#value', () => {
+    it('Test Value', () => {
+      expect(Helper.value('foo')).to.be.equal('foo')
+      expect(Helper.value(() => {
+        return 'foo'
+      })).to.be.equal('foo')
     })
   })
 })

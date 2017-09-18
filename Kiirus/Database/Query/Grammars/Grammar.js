@@ -609,6 +609,18 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile an exists statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileExists (query) {
+    const select = this.compileSelect(query)
+
+    return `select exists(${select}) as ${this.wrap('exists')}`
+  }
+
+  /**
    * Compile a select query into SQL.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query

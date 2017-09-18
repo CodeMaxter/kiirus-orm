@@ -19,6 +19,12 @@ module.exports = class Collection {
     this._items = Array.isArray(items) ? items : this.valueOf(items)
 
     this.length = this._items.length
+
+    return new Proxy(this, {
+      get: (target, key) => {
+        return target[key] || target.get(key) || undefined
+      }
+    })
   }
 
   /**
@@ -58,12 +64,64 @@ module.exports = class Collection {
    * @param  {function|undefined}  $callback
    * @return {\Kiirus\Support\Collection}
    */
-  filter (callback = null) {
+  filter (callback = undefined) {
     if (callback) {
       return new this.constructor(Arr.where(this._items, callback))
     }
 
     return new this.constructor(this._items.filter((item) => item !== ''))
+  }
+
+  /**
+   * Get the first item from the collection.
+   *
+   * @param  {function|undefined}  callback
+   * @param  {*}  defaultValue
+   * @return {*}
+   */
+  first (callback = undefined, defaultValue = undefined) {
+    return Arr.first(this._items, callback, defaultValue)
+  }
+
+  /**
+   * Get an item from the collection by key.
+   *
+   * @param  {*}  key
+   * @param  {*}  defaultValue
+   * @return {*}
+   */
+  get (key, defaultValue = undefined) {
+    if (this.offsetExists(key)) {
+      return this._items[key]
+    }
+
+    return defaultValue
+  }
+
+  /**
+   * Concatenate values of a given key as a string.
+   *
+   * @param  {string}  value
+   * @param  {string}  glue
+   * @return {string}
+   */
+  implode (value, glue = '') {
+    const first = this.first()
+
+    if (Array.isArray(first) || Helper.isObject(first)) {
+      return this.pluck(value).all().join(glue)
+    }
+
+    return this._items.join(value)
+  }
+
+  /**
+   * Determine if the collection is empty or not.
+   *
+   * @return {boolean}
+   */
+  isEmpty () {
+    return Helper.empty(this._items)
   }
 
   /**
@@ -80,6 +138,27 @@ module.exports = class Collection {
     }
 
     return new this.constructor(items)
+  }
+
+  /**
+   * Determine if an item exists at an offset.
+   *
+   * @param  {*}  key
+   * @return {boolean}
+   */
+  offsetExists (key) {
+    return Arr.keyExists(key, this._items)
+  }
+
+  /**
+   * Get the values of a given key.
+   *
+   * @param  {string|array}  value
+   * @param  {string|undefined}  key
+   * @return {Collection}
+   */
+  pluck (value, key = undefined) {
+    return new this.constructor(Arr.pluck(this._items, value, key))
   }
 
   /**

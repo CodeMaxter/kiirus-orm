@@ -59,7 +59,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string|null}
    */
   _compileColumns (query, columns) {
-    if (query.aggregate !== undefined) {
+    if (query.aggregateProperty !== undefined) {
       return
     }
 
@@ -68,8 +68,10 @@ module.exports = class SqlServerGrammar extends Grammar {
     // If there is a limit on the query, but not an offset, we will add the top
     // clause to the query, which serves as a "limit" type clause within the
     // SQL Server system similar to the limit keywords available in MySQL.
-    if (query.limit > 0 && query.offset <= 0) {
-      select += 'top ' + query.limit + ' '
+    if (query.limitProperty > 0 && (query.offsetProperty === undefined ||
+      query.offsetProperty <= 0)
+    ) {
+      select += 'top ' + query.limitProperty + ' '
     }
 
     return select + this.columnize(columns)
@@ -165,8 +167,8 @@ module.exports = class SqlServerGrammar extends Grammar {
   _compileRowConstraint (query) {
     const start = query.offset + 1
 
-    if (query.limit > 0) {
-      const finish = query.offset + query.limit
+    if (query.limitProperty > 0) {
+      const finish = query.offsetProperty + query.limitProperty
 
       return `between ${start} and ${finish}`
     }
@@ -267,7 +269,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   compileExists (query) {
-    const existsQuery = Object.assign({}, query)
+    const existsQuery = Helper.clone(query)
 
     existsQuery.columns = []
 
@@ -336,7 +338,7 @@ module.exports = class SqlServerGrammar extends Grammar {
   compileTruncate (query) {
     const sql = {}
 
-    sql['truncate table ' + this.wrapTable(query.from)] = []
+    sql['truncate table ' + this.wrapTable(query.table)] = []
 
     return sql
   }
@@ -349,7 +351,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   compileUpdate (query, values) {
-    const [table, alias] = this._parseUpdateTable(query.from)
+    const [table, alias] = this._parseUpdateTable(query.table)
 
     // Each one of the columns in the update statements needs to be wrapped in the
     // keyword identifiers, also a place-holder needs to be created for each of

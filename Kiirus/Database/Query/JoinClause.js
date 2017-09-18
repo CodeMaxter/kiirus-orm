@@ -65,7 +65,7 @@ module.exports = class JoinClause {
    * @return {\Kiirus\Database\Query\JoinClause}
    */
   newQuery () {
-    return new this.constructor(this.parentQuery, this.type, this.table)
+    return new JoinClause(this.parentQuery, this.type, this.table)
   }
 
   /**

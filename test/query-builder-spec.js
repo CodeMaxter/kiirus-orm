@@ -369,8 +369,8 @@ describe('QueryBuilder', () => {
     it('Where Day SqlServer', () => {
       const builder = builderStub.getSqlServerBuilder()
       builder.select('*').from('users').whereDay('created_at', '=', 1)
-      expect('select * from [users] where day([created_at]) = ?').to.be.equal(builder.toSql())
-      expect([1]).to.be.deep.equal(builder.getBindings())
+      expect(builder.toSql()).to.be.equal('select * from [users] where day([created_at]) = ?')
+      expect(builder.getBindings()).to.be.deep.equal([1])
     })
 
     it('Where Month SqlServer', () => {
@@ -1088,21 +1088,248 @@ describe('QueryBuilder', () => {
       expect(builder.toSql()).to.be.equal('select * from "users" left join "contacts" on "users"."id" = "contacts"."id" and "contact_type_id" in (select "id" from "contact_types" where "category_id" = ? and "deleted_at" is null)')
       expect(builder.getBindings()).to.be.deep.equal(['1'])
 
-      // builder = builderStub.getBuilder()
-      // builder.select('*').from('users').leftJoin('contacts', (j) => {
-      //   j.on('users.id', 'contacts.id').whereExists((q) => {
-      //     q.selectRaw('1').from('contact_types')
-      //       .whereRaw('contact_types.id = contacts.contact_type_id')
-      //       .where('category_id', '1')
-      //       .whereNull('deleted_at')
-      //   })
-      // })
-      // expect(builder.toSql()).to.be.equal('select * from "users" left join "contacts" on "users"."id" = "contacts"."id" and exists (select 1 from "contact_types" where contact_types.id = contacts.contact_type_id and "category_id" = ? and "deleted_at" is null)')
-      // expect(builder.getBindings()).to.be.deep.equal(['1'])
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').leftJoin('contacts', (j) => {
+        j.on('users.id', 'contacts.id').whereExists((q) => {
+          q.selectRaw('1').from('contact_types')
+            .whereRaw('contact_types.id = contacts.contact_type_id')
+            .where('category_id', '1')
+            .whereNull('deleted_at')
+        })
+      })
+      expect(builder.toSql()).to.be.equal('select * from "users" left join "contacts" on "users"."id" = "contacts"."id" and exists (select 1 from "contact_types" where contact_types.id = contacts.contact_type_id and "category_id" = ? and "deleted_at" is null)')
+      expect(builder.getBindings()).to.be.deep.equal(['1'])
     })
 
-    it('', () => {
+    it('Joins With Advanced Subquery Condition', () => {
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').leftJoin('contacts', (j) => {
+        j.on('users.id', 'contacts.id').whereExists((q) => {
+          q.selectRaw('1').from('contact_types')
+            .whereRaw('contact_types.id = contacts.contact_type_id')
+            .where('category_id', '1')
+            .whereNull('deleted_at')
+            .whereIn('level_id', (q) => {
+              q.select('id').from('levels')
+                .where('is_active', true)
+            })
+        })
+      })
+      expect(builder.toSql()).to.be.equal('select * from "users" left join "contacts" on "users"."id" = "contacts"."id" and exists (select 1 from "contact_types" where contact_types.id = contacts.contact_type_id and "category_id" = ? and "deleted_at" is null and "level_id" in (select "id" from "levels" where "is_active" = ?))')
+      expect(builder.getBindings()).to.be.deep.equal(['1', true])
+    })
 
+    it('Raw Expressions In Select', () => {
+      const builder = builderStub.getBuilder()
+      builder.select(new Raw('substr(foo, 6)')).from('users')
+      expect(builder.toSql()).to.be.equal('select substr(foo, 6) from "users"')
+    })
+
+    it('Find Returns First Result By ID', () => {
+      const builder = builderStub.getBuilder()
+
+      const connectionMock = createMock(builder.getConnection())
+      const processorMock = createMock(builder.getProcessor())
+      const results = Promise.resolve(new Collection([{'foo': 'bar'}]))
+
+      connectionMock.expects('select').once().withArgs('select * from "users" where "id" = ? limit 1', [1]).returns(results)
+      processorMock.expects('processSelect').once().withArgs(builder, results).returns(results)
+      builder.from('users').find(1).then((results) => {
+        expect(results).to.be.deep.equal({'foo': 'bar'})
+      })
+    })
+
+    it('First Method Returns First Result', () => {
+      const builder = builderStub.getBuilder()
+
+      const connectionMock = createMock(builder.getConnection())
+      const processorMock = createMock(builder.getProcessor())
+      const results = Promise.resolve(new Collection([{'foo': 'bar'}]))
+
+      connectionMock.expects('select').once().withArgs('select * from "users" where "id" = ? limit 1', [1]).returns(results)
+      processorMock.expects('processSelect').once().withArgs(builder, results).returns(results)
+      builder.from('users').where('id', '=', 1).first().then((results) => {
+        expect(results).to.be.deep.equal({'foo': 'bar'})
+      })
+    })
+
+    it('List Methods Gets Array Of Column Values', () => {
+      let builder = builderStub.getBuilder()
+
+      let connectionMock = createMock(builder.getConnection())
+      let processorMock = createMock(builder.getProcessor())
+      let results = Promise.resolve(new Collection([{'foo': 'bar'}, {'foo': 'baz'}]))
+
+      connectionMock.expects('select').once().returns(results)
+      processorMock.expects('processSelect').once().withArgs(builder, results).returns(results)
+      builder.from('users').where('id', '=', 1).pluck('foo').then((results) => {
+        expect(results.all()).to.be.deep.equal(['bar', 'baz'])
+      })
+
+      builder = builderStub.getBuilder()
+
+      connectionMock = createMock(builder.getConnection())
+      processorMock = createMock(builder.getProcessor())
+      results = Promise.resolve(new Collection([{'id': 1, 'foo': 'bar'}, {'id': 10, 'foo': 'baz'}]))
+
+      connectionMock.expects('select').once().returns(results)
+      processorMock.expects('processSelect').once().withArgs(builder, results).returns(results)
+      builder.from('users').where('id', '=', 1).pluck('foo', 'id').then((results) => {
+        expect(results.all()).to.be.deep.equal({1: 'bar', 10: 'baz'})
+      })
+    })
+
+    it('Implode', () => {
+      // Test without glue.
+      let builder = builderStub.getBuilder()
+
+      let connectionMock = createMock(builder.getConnection())
+      let processorMock = createMock(builder.getProcessor())
+      let results = Promise.resolve(new Collection([{'foo': 'bar'}, {'foo': 'baz'}]))
+
+      connectionMock.expects('select').once().returns(results)
+      processorMock.expects('processSelect').once().withArgs(builder, results).returns(results)
+      builder.from('users').where('id', '=', 1).implode('foo').then((results) => {
+        expect(results).to.be.deep.equal('barbaz')
+      })
+
+      // Test with glue.
+      builder = builderStub.getBuilder()
+
+      connectionMock = createMock(builder.getConnection())
+      processorMock = createMock(builder.getProcessor())
+      results = Promise.resolve(new Collection([{'foo': 'bar'}, {'foo': 'baz'}]))
+
+      connectionMock.expects('select').once().returns(results)
+      processorMock.expects('processSelect').once().withArgs(builder, results).returns(results)
+      builder.from('users').where('id', '=', 1).implode('foo', ',').then((results) => {
+        expect('bar,baz').to.be.deep.equal(results)
+      })
+    })
+
+    it('Value Method Returns Single Column', () => {
+      const builder = builderStub.getBuilder()
+
+      const connectionMock = createMock(builder.getConnection())
+      const processorMock = createMock(builder.getProcessor())
+      const results = Promise.resolve(new Collection([{'foo': 'bar'}]))
+
+      connectionMock.expects('select').once().withArgs('select "foo" from "users" where "id" = ? limit 1', [1]).returns(results)
+      processorMock.expects('processSelect').once().withArgs(builder, results).returns(results)
+
+      builder.from('users').where('id', '=', 1).value('foo').then((results) => {
+        expect(results).to.be.equal('bar')
+      })
+    })
+
+    it('Aggregate Functions', () => {
+      let builder = builderStub.getBuilder()
+      let connectionMock = createMock(builder.getConnection())
+      let processorMock = createMock(builder.getProcessor())
+      let results = Promise.resolve(new Collection([{'aggregate': 1}]))
+
+      connectionMock.expects('select').once().withArgs('select count(*) as aggregate from "users"', []).returns(results)
+      processorMock.expects('processSelect').once().returns(results)
+      builder.from('users').count().then((results) => {
+        expect(results).to.be.equal(1)
+      })
+
+      builder = builderStub.getBuilder()
+      connectionMock = createMock(builder.getConnection())
+      results = Promise.resolve(new Collection([{'exists': 1}]))
+
+      connectionMock.expects('select').once().withArgs('select exists(select * from "users") as "exists"', []).returns(results)
+      builder.from('users').exists().then((results) => {
+        expect(results).to.be.equal(true)
+      })
+
+      builder = builderStub.getBuilder()
+      connectionMock = createMock(builder.getConnection())
+      processorMock = createMock(builder.getProcessor())
+      results = Promise.resolve(new Collection([{'aggregate': 1}]))
+
+      connectionMock.expects('select').once().withArgs('select max("id") as aggregate from "users"', []).returns(results)
+      processorMock.expects('processSelect').once().returns(results)
+      builder.from('users').max('id').then((results) => {
+        expect(results).to.be.equal(1)
+      })
+
+      builder = builderStub.getBuilder()
+      connectionMock = createMock(builder.getConnection())
+      processorMock = createMock(builder.getProcessor())
+      results = Promise.resolve(new Collection([{'aggregate': 1}]))
+
+      connectionMock.expects('select').once().withArgs('select min("id") as aggregate from "users"', []).returns(results)
+      processorMock.expects('processSelect').once().returns(results)
+      builder.from('users').min('id').then((results) => {
+        expect(results).to.be.equal(1)
+      })
+
+      builder = builderStub.getBuilder()
+      connectionMock = createMock(builder.getConnection())
+      processorMock = createMock(builder.getProcessor())
+      results = Promise.resolve(new Collection([{'aggregate': 1}]))
+
+      connectionMock.expects('select').once().withArgs('select sum("id") as aggregate from "users"', []).returns(results)
+      processorMock.expects('processSelect').once().returns(results)
+      results = builder.from('users').sum('id').then((results) => {
+        expect(results).to.be.equal(1)
+      })
+    })
+
+    it('SqlServer Exists', () => {
+      const builder = builderStub.getSqlServerBuilder()
+      const connectionMock = createMock(builder.getConnection())
+      const results = Promise.resolve(new Collection([{'exists': 1}]))
+
+      connectionMock.expects('select').once().withArgs('select top 1 1 [exists] from [users]', []).returns(results)
+      builder.from('users').exists().then((results) => {
+        expect(results).to.be.equal(true)
+      })
+    })
+
+    it('Aggregate Reset Followed By Get', () => {
+      const builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+      const results1 = Promise.resolve(new Collection([{'aggregate': 1}]))
+      const results2 = Promise.resolve(new Collection([{'aggregate': 2}]))
+      const results3 = Promise.resolve(new Collection([{'column1': 'foo', 'column2': 'bar'}]))
+
+      connectionMock.expects('select').once().withArgs('select count(*) as aggregate from "users"', []).returns(results1)
+      connectionMock.expects('select').once().withArgs('select sum("id") as aggregate from "users"', []).returns(results2)
+      connectionMock.expects('select').once().withArgs('select "column1", "column2" from "users"', []).returns(results3)
+
+      builder.from('users').select('column1', 'column2')
+      builder.count().then((count) => {
+        expect(count).to.be.equal(1)
+      })
+
+      builder.sum('id').then((sum) => {
+        expect(sum).to.be.equal(2)
+      })
+
+      builder.get().then((result) => {
+        expect(result.all()).to.be.deep.equal([{'column1': 'foo', 'column2': 'bar'}])
+      })
+    })
+
+    it('Aggregate Reset Followed By Select Get', () => {
+      const builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+      const results1 = Promise.resolve(new Collection([{'aggregate': 1}]))
+      const results2 = Promise.resolve(new Collection([{'column2': 'foo', 'column3': 'bar'}]))
+
+      connectionMock.expects('select').once().withArgs('select count("column1") as aggregate from "users"', []).returns(results1)
+      connectionMock.expects('select').once().withArgs('select "column2", "column3" from "users"', []).returns(results2)
+
+      builder.from('users')
+      builder.count('column1').then((count) => {
+        expect(count).to.be.equal(1)
+      })
+
+      builder.select('column2', 'column3').get().then((result) => {
+        expect(result.all()).to.be.deep.equal([{'column2': 'foo', 'column3': 'bar'}])
+      })
     })
   })
 })

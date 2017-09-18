@@ -31,6 +31,17 @@ describe('Arr', () => {
     })
   })
 
+  describe('#first', () => {
+    it('Test First', () => {
+      const array = [100, 200, 300]
+      const value = Arr.first(array, (value) => {
+        return value >= 150
+      })
+      expect(value).to.be.equal(200)
+      expect(Arr.first(array)).to.be.equal(100)
+    })
+  })
+
   describe('#flatten', () => {
     it('Array Flatten', () => {
       expect(['taylor', 'php', 'javascript', null]).to.deep.equal(Arr.flatten({'name': 'taylor', 'languages': ['php', 'javascript', null]}))
@@ -117,6 +128,21 @@ describe('Arr', () => {
 
       expect(Arr.keyExists('john', ['kevin', 'john', 'van Zonneveld'])).to.be.equal(false)
       expect(Arr.keyExists('john', {'kevin': 'van Zonneveld'})).to.be.equal(false)
+    })
+  })
+
+  describe('#pluck', function () {
+    it('Array Pluck', function () {
+      let testArray = [
+        {'developer': {'name': 'Taylor'}},
+        {'developer': {'name': 'Abigail'}}
+      ]
+      testArray = Arr.pluck(testArray, 'developer.name')
+      expect(testArray).to.deep.equal(['Taylor', 'Abigail'])
+
+      testArray = [{'id': 1, 'foo': 'bar'}, {'id': 10, 'foo': 'baz'}]
+      testArray = Arr.pluck(testArray, 'foo', 'id')
+      expect(testArray).to.deep.equal({1: 'bar', 10: 'baz'})
     })
   })
 

@@ -4,6 +4,21 @@ const Helper = require('./Helper')
 
 module.exports = class Arr {
   /**
+   * Explode the "value" and "key" arguments passed to "pluck".
+   *
+   * @param  {string|array}  value
+   * @param  {string|array|undefined}  key
+   * @return {array}
+   */
+  static _explodePluckParameters (value, key) {
+    value = Array.isArray(value) ? value : value.split('.')
+
+    key = key === undefined || Array.isArray(key) ? key : key.split('.')
+
+    return [value, key]
+  }
+
+  /**
    * Get all of the given array except for a specified array of items.
    *
    * @param  {array}  array
@@ -25,6 +40,34 @@ module.exports = class Arr {
    */
   static exists (haystack, key) {
     return Arr.keyExists(key, haystack)
+  }
+
+  /**
+   * Return the first element in an array passing a given truth test.
+   *
+   * @param  {array}  array
+   * @param  {function|undefined}  callback
+   * @param  {*}  defaultValue
+   * @return {*}
+   */
+  static first (array, callback = undefined, defaultValue = undefined) {
+    if (callback === undefined) {
+      if (Helper.empty(array)) {
+        return Helper.value(defaultValue)
+      }
+
+      for (let item of array) {
+        return item
+      }
+    }
+
+    for (const [key, value] of array.entries()) {
+      if (callback(value, key)) {
+        return value
+      }
+    }
+
+    return Helper.value(defaultValue)
   }
 
   /**
@@ -111,6 +154,7 @@ module.exports = class Arr {
   static isAssoc (array) {
     return Helper.isObject(array)
   }
+
   /**
    * Determine if the given key exists in the provided array.
    *
@@ -153,6 +197,46 @@ module.exports = class Arr {
     }
 
     return false
+  }
+
+  /**
+   * Pluck an array of values from an array.
+   *
+   * @param  {array}   array
+   * @param  {string|array}  value
+   * @param  {string|array|undefined}  key
+   * @return {array}
+   */
+  static pluck (array, value, key = undefined) {
+    [value, key] = Arr._explodePluckParameters(value, key)
+
+    let results = []
+    let objectResult = {}
+
+    for (let index = 0, length = array.length; index < length; ++index) {
+      const itemValue = Helper.dataGet(array[index], value)
+
+      // If the key is "undefined", we will just append the value to the array and keep
+      // looping. Otherwise we will key the array using the value of the key we
+      // received from the developer. Then we'll return the final array form.
+      if (key === undefined) {
+        results.push(itemValue)
+      } else {
+        const itemKey = Helper.dataGet(array[index], key)
+
+        results[itemKey] = itemValue
+      }
+    }
+
+    if (Object.keys(results).length !== results.length) {
+      for (let key in results) {
+        objectResult[key] = results[key]
+      }
+
+      results = objectResult
+    }
+
+    return results
   }
 
   /**

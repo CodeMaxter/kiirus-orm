@@ -4,6 +4,27 @@ const HigherOrderTapProxy = require('./HigherOrderTapProxy')
 
 module.exports = class Helper {
   /**
+   * Returns an array with all keys from array lowercased or uppercased.
+   *
+   * @param {object} value
+   * @param {string} changeCase
+   * @returns {object}
+   */
+  static changeKeyCase (value, changeCase) {
+    const result = {}
+
+    if (value && typeof value === 'object') {
+      const casefunction = (!changeCase || changeCase === 'CASE_LOWER') ? 'toLowerCase' : 'toUpperCase'
+
+      for (let key in value) {
+        result[key[casefunction]()] = value[key]
+      }
+
+      return result
+    }
+  }
+
+  /**
    * Clone a object
    *
    * @param {object} value
@@ -20,6 +41,50 @@ module.exports = class Helper {
     })
 
     return copy
+  }
+
+  /**
+   * Get an item from an array or object using "dot" notation.
+   *
+   * @param  {*}   target
+   * @param  {string|array}  key
+   * @param  {*}   default
+   * @return {*}
+   */
+  static dataGet (target, key, defaultValue = undefined) {
+    if (key === undefined) {
+      return target
+    }
+
+    key = Array.isArray(key) ? key : key.split('.')
+
+    // for (let index = 0, length = key.length; index < length; ++index) {
+    for (const value of key) {
+      if (Array.isArray(target)) {
+        // if (target[key[index]] === undefined) {
+        if (target[value] === undefined) {
+          return Helper.value(defaultValue)
+        }
+
+        target = target[value]
+      } else if (target instanceof Object) {
+        if (target[value] === undefined) {
+          return Helper.value(defaultValue)
+        }
+
+        target = target[value]
+      } else if (Helper.isObject(target)) {
+        if (target[value] === undefined) {
+          return Helper.value(defaultValue)
+        }
+
+        target = target[value]
+      } else {
+        return Helper.value(defaultValue)
+      }
+    }
+
+    return target
   }
 
   /**
@@ -192,6 +257,16 @@ module.exports = class Helper {
   }
 
   /**
+   * Get the last element from an array.
+   *
+   * @param  {array}  array
+   * @return {mixed}
+   */
+  static last (array) {
+    return array[array.length - 1]
+  }
+
+  /**
    * Merge one or more arrays
    *
    * @param {array...}
@@ -276,5 +351,15 @@ module.exports = class Helper {
     callback(value)
 
     return value
+  }
+
+  /**
+   * Return the default value of the given value.
+   *
+   * @param  {*}  value
+   * @return {*}
+   */
+  static value (value) {
+    return typeof value === 'function' ? value() : value
   }
 }
