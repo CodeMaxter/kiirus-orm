@@ -22,7 +22,11 @@ module.exports = class Collection {
 
     return new Proxy(this, {
       get: (target, key) => {
-        return target[key] || target.get(key) || undefined
+        if (Reflect.has(target, key)) {
+          return Reflect.get(target, key)
+        } else {
+          return target.get(key)
+        }
       }
     })
   }

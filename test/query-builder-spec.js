@@ -1272,7 +1272,7 @@ describe('QueryBuilder', () => {
 
       connectionMock.expects('select').once().withArgs('select sum("id") as aggregate from "users"', []).returns(results)
       processorMock.expects('processSelect').once().returns(results)
-      results = builder.from('users').sum('id').then((results) => {
+      builder.from('users').sum('id').then((results) => {
         expect(results).to.be.equal(1)
       })
     })
@@ -1329,6 +1329,81 @@ describe('QueryBuilder', () => {
 
       builder.select('column2', 'column3').get().then((result) => {
         expect(result.all()).to.be.deep.equal([{'column2': 'foo', 'column3': 'bar'}])
+      })
+    })
+
+    it('Aggregate With Sub Select', () => {
+      const builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+      const processorMock = createMock(builder.getProcessor())
+      const results = Promise.resolve(new Collection([{'aggregate': 1}]))
+
+      connectionMock.expects('select').once().withArgs('select count(*) as aggregate from "users"', []).returns(results)
+      processorMock.expects('processSelect').once().returns(results)
+
+      builder.from('users').selectSub((query) => {
+        query.from('posts').select('foo').where('title', 'foo')
+      }, 'post')
+      builder.count().then((count) => {
+        expect(count).to.be.equal(1)
+        expect(builder.getBindings()).to.be.deep.equal(['foo'])
+      })
+    })
+
+    it('Subqueries Bindings', () => {
+      let builder = builderStub.getBuilder()
+      const second = builderStub.getBuilder().select('*').from('users').orderByRaw('id = ?', 2)
+      const third = builderStub.getBuilder().select('*').from('users').where('id', 3).groupBy('id').having('id', '!=', 4)
+
+      builder.groupBy('a').having('a', '=', 1).union(second).union(third)
+      expect(builder.getBindings()).to.be.deep.equal([1, 2, 3, 4])
+
+      builder = builderStub.getBuilder().select('*').from('users').where('email', '=', (q) => {
+        q.select(new Raw('max(id)'))
+          .from('users').where('email', '=', 'bar')
+          .orderByRaw('email like ?', '%.com')
+          .groupBy('id').having('id', '=', 4)
+      }).orWhere('id', '=', 'foo').groupBy('id').having('id', '=', 5)
+      expect(builder.getBindings()).to.be.deep.equal(['bar', 4, '%.com', 'foo', 5])
+    })
+
+    it('Insert Method', () => {
+      const builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('insert').once().withArgs('insert into "users" ("email") values (?)', ['foo']).returns(Promise.resolve(true))
+      builder.from('users').insert({'email': 'foo'}).then((result) => {
+        expect(result).to.be.equal(true)
+      })
+    })
+
+    it('SQLite Multiple Inserts', () => {
+      const builder = builderStub.getSQLiteBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('insert').once().withArgs('insert into "users" ("email", "name") select ? as "email", ? as "name" union all select ? as "email", ? as "name"', ['foo', 'taylor', 'bar', 'dayle']).returns(Promise.resolve(true))
+      builder.from('users').insert([{'email': 'foo', 'name': 'taylor'}, {'email': 'bar', 'name': 'dayle'}]).then((result) => {
+        expect(result).to.be.equal(true)
+      })
+    })
+
+    it('Insert Get Id Method', () => {
+      const builder = builderStub.getBuilder()
+      const processorMock = createMock(builder.getProcessor())
+
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?)', ['foo'], 'id').returns(Promise.resolve(1))
+      builder.from('users').insertGetId({'email': 'foo'}, 'id').then((result) => {
+        expect(result).to.be.equal(1)
+      })
+    })
+
+    it('Insert Get Id Method Removes Expressions', () => {
+      const builder = builderStub.getBuilder()
+      const processorMock = createMock(builder.getProcessor())
+
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email", "bar") values (?, bar)', ['foo'], 'id').returns(Promise.resolve(1))
+      builder.from('users').insertGetId({'email': 'foo', 'bar': new Raw('bar')}, 'id').then((result) => {
+        expect(result).to.be.equal(1)
       })
     })
   })

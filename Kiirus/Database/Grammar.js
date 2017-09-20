@@ -109,7 +109,15 @@ module.exports = class Grammar {
    * @return {string}
    */
   parameterize (values) {
-    return values.map(this.parameter.bind(this)).join(', ')
+    // return values.map(this.parameter.bind(this)).join(', ')
+
+    const result = []
+
+    for (const key in values) {
+      result.push(this.parameter(values[key]))
+    }
+
+    return result.join(', ')
   }
 
   /**

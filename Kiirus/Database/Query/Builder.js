@@ -219,6 +219,24 @@ module.exports = class Builder {
   }
 
   /**
+   * Remove all of the expressions from a list of bindings.
+   *
+   * @param  {array}  bindings
+   * @return {array}
+   */
+  _cleanBindings (bindings) {
+    const result = []
+
+    for (const key in bindings) {
+      if (!(bindings[key] instanceof Expression)) {
+        result.push(bindings[key])
+      }
+    }
+
+    return result
+  }
+
+  /**
    * Create a new query instance for a sub-query.
    *
    * @return {\Kiirus\Database\Query\Builder}
@@ -548,11 +566,17 @@ module.exports = class Builder {
    * @return {*}
    */
   aggregate (functionName, columns = ['*']) {
+    // We need to save the original bindings, because the cloneWithoutBindings
+    // method delete them from the builder object
+    const bindings = Object.assign({}, this.bindings)
+
     return this.cloneWithout(['columns'])
       .cloneWithoutBindings(['select'])
       ._setAggregate(functionName, columns)
       .get(columns).then((results) => {
         if (!results.isEmpty()) {
+          this.bindings = bindings
+
           return Number(Helper.changeKeyCase(results[0])['aggregate'])
         }
       })
@@ -633,7 +657,8 @@ module.exports = class Builder {
    */
   exists () {
     return this.connection.select(
-      this.grammar.compileExists(this), this.getBindings()
+      this.grammar.compileExists(this),
+      this.getBindings()
     ).then((results) => {
       // If the results has rows, we will get the row and see if the exists column is a
       // boolean true. If there is no results for this query we will return false as
@@ -874,6 +899,57 @@ module.exports = class Builder {
     return this.pluck(column).then((results) => {
       return results.implode(glue)
     })
+  }
+
+  /**
+   * Insert a new record into the database.
+   *
+   * @param  {array}  values
+   * @return {boolean}
+   */
+  insert (values) {
+    // Since every insert gets treated like a batch insert, we will make sure the
+    // bindings are structured in a way that is convenient when building these
+    // inserts statements by verifying these elements are actually an array.
+    if (Helper.empty(values)) {
+      return true
+    }
+
+    if (!Array.isArray(values)) {
+      values = [values]
+    } else {
+      // Here, we will sort the insert keys for every record so that each insert is
+      // in the same order for the record. We need to make sure this is the case
+      // so there are not any errors or problems when inserting these records.
+      for (const [key, value] of values.entries()) {
+        Helper.ksort(value)
+
+        values[key] = value
+      }
+    }
+
+    // Finally, we will run this query against the database connection and return
+    // the results. We will need to also flatten these bindings before running
+    // the query so they are all in one huge, flattened array for execution.
+    return this.connection.insert(
+      this.grammar.compileInsert(this, values),
+      this._cleanBindings(Arr.flatten(values, 1))
+    )
+  }
+
+  /**
+   * Insert a new record and get the value of the primary key.
+   *
+   * @param  {array}   values
+   * @param  {string|undefined}  sequence
+   * @return {Promise<Number>}
+   */
+  insertGetId (values, sequence = undefined) {
+    const sql = this.grammar.compileInsertGetId(this, values, sequence)
+
+    values = this._cleanBindings(values)
+
+    return this.processor.processInsertGetId(this, sql, values, sequence)
   }
 
   /**

@@ -621,6 +621,47 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile an insert statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  values
+   * @return {string}
+   */
+  compileInsert (query, values) {
+    // Essentially we will force every insert to be treated as a batch insert which
+    // simply makes creating the SQL easier for us since we can utilize the same
+    // basic routine regardless of an amount of records given to us to insert.
+    const table = this.wrapTable(query.table)
+
+    if (!Array.isArray(values)) {
+      values = [values]
+    }
+
+    const columns = this.columnize(Object.keys(values[0]))
+
+    // We need to build a list of parameter place-holders of values that are bound
+    // to the query. Each insert should have the exact same amount of parameter
+    // bindings so we will loop through the record and parameterize them all.
+    const parameters = new Collection(values).map((record) => {
+      return '(' + this.parameterize(record) + ')'
+    }).implode(', ')
+
+    return `insert into ${table} (${columns}) values ${parameters}`
+  }
+
+  /**
+   * Compile an insert and get ID statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}   values
+   * @param  {string}  sequence
+   * @return {string}
+   */
+  compileInsertGetId (query, values, sequence) {
+    return this.compileInsert(query, values)
+  }
+
+  /**
    * Compile a select query into SQL.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query

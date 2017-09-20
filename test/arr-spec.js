@@ -8,11 +8,11 @@ const Helper = require('./../Kiirus/Support/Helper')
 describe('Arr', () => {
   describe('#except', () => {
     it('Array Except', () => {
-      let array = { 'name': 'Desk', 'price': 100 }
+      let array = {'name': 'Desk', 'price': 100}
 
       array = Arr.except(array, ['price'])
 
-      expect(array).to.deep.equal({ 'name': 'Desk' })
+      expect(array).to.be.deep.equal({'name': 'Desk'})
     })
   })
 

@@ -257,6 +257,24 @@ module.exports = class Helper {
   }
 
   /**
+   * Sort an array by key
+   *
+   * @param  {array}   data
+   * @return {*}
+   */
+  static ksort (data) {
+    const sorted = {}
+
+    const keys = Object.keys(data).sort()
+
+    for (const value of keys) {
+      sorted[value] = data[value]
+    }
+
+    return sorted
+  }
+
+  /**
    * Get the last element from an array.
    *
    * @param  {array}  array

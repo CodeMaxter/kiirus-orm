@@ -6,9 +6,9 @@ const Str = require('./../Kiirus/Support/Str')
 describe('Str', function () {
   describe('#ucfirst', function () {
     it('String First Letter In Uppercase', function () {
-      expect('Hello world!').to.equal(Str.ucfirst('hello world!'))
-      expect('Hello World!').to.equal(Str.ucfirst('hello World!'))
-      expect('HELLO WORLD!').to.equal(Str.ucfirst('HELLO WORLD!'))
+      expect(Str.ucfirst('hello world!')).to.be.equal('Hello world!')
+      expect(Str.ucfirst('hello World!')).to.be.equal('Hello World!')
+      expect(Str.ucfirst('HELLO WORLD!')).to.be.equal('HELLO WORLD!')
     })
   })
 })
