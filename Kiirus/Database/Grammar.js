@@ -73,6 +73,15 @@ module.exports = class Grammar {
   }
 
   /**
+   * Get the format for database stored dates.
+   *
+   * @return {string}
+   */
+  getDateFormat () {
+    return 'yyyy-mm-ddTHH:nn:ss'
+  }
+
+  /**
    * Get the value of a raw expression.
    *
    * @param  {\Kiirus\Database\Query\Expression}  expression

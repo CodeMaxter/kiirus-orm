@@ -1,6 +1,7 @@
 'use strict'
 
 const Collection = require('./../Database/Ceres/Collection')
+const DateTime = require('./../Support/DateTime')
 const Processor = require('./Query/Processors/Processor')
 const QueryGrammar = require('./Query/Grammars/Grammar')
 
@@ -62,6 +63,13 @@ module.exports = class Connection {
     this._pretending = false
 
     /**
+     * The query grammar implementation.
+     *
+     * @var {\Kiirus\Database\Query\Grammars\Grammar}
+     */
+    this._queryGrammar = undefined
+
+    /**
      * All of the queries run against the connection.
      *
      * @var {array}
@@ -74,6 +82,13 @@ module.exports = class Connection {
      * @var {function}
      */
     this._reconnector = null
+
+    /**
+     * Indicates if changes have been made to the database.
+     *
+     * @var {number}
+     */
+    this._recordsModified = false
 
     /**
      * The table prefix for the connection.
@@ -136,7 +151,7 @@ module.exports = class Connection {
    *
    * @throws {\Kiirus\Database\QueryException}
    */
-  _run (query, bindings) {
+  _run (query, bindings, callback) {
     let result
 
     this._reconnectIfMissingConnection()
@@ -147,7 +162,8 @@ module.exports = class Connection {
     // caused by a connection that has been lost. If that is the cause, we'll try
     // to re-establish connection and re-run the query with a fresh connection.
     try {
-      result = this._runQueryPromise(query, bindings)
+      // result = this._runQueryPromise(query, bindings).then((result) => {
+      result = this._runQueryCallback(query, bindings, callback)
     } catch (e) {
       result = this._handleQueryException(
         e, query, bindings
@@ -173,36 +189,12 @@ module.exports = class Connection {
    *
    * @throws {\Kiirus\Database\QueryException}
    */
-  _runQueryPromise (query, bindings) {
+  _runQueryCallback (query, bindings, callback) {
     // To execute the statement, we'll simply call the callback, which will actually
     // run the SQL against the PDO connection. Then we can calculate the time it
     // took to execute and log the query SQL, bindings and time in our memory.
     try {
-      return new Promise((resolve, reject) => {
-        if (this.pretending()) {
-          resolve(new Collection([]))
-        }
-
-        this._connection.query(query, bindings, (error, rows) => {
-          let results = []
-
-          this.disconnect()
-
-          if (error) {
-            reject(error)
-          }
-
-          if (rows !== undefined) {
-            results = new Collection(rows)
-          }
-
-          try {
-            resolve(results)
-          } catch (ex) {
-            reject(ex)
-          }
-        })
-      })
+      return callback(query, bindings)
     } catch (e) {
       // If an exception occurs when attempting to run a query, we'll format the error
       // message to include the bindings with SQL, which will make this exception a
@@ -212,12 +204,55 @@ module.exports = class Connection {
   }
 
   /**
+   * Run an SQL statement and get the number of rows affected.
+   *
+   * @param  {string}  query
+   * @param  {array}   bindings
+   * @return {number}
+   */
+  affectingStatement (query, bindings = []) {
+    return this._run(query, bindings, (query, bindings) => {
+      if (this.pretending()) {
+        return Promise.resolve(0)
+      }
+
+      // For update or delete statements, we want to get the number of rows affected
+      // by the statement and return that back to the developer. We'll first need
+      // to execute the statement and then we'll use PDO to fetch the affected.
+      return new Promise((resolve, reject) => {
+        this._connection.query(query, bindings, (error, result) => {
+          this.disconnect()
+
+          if (error) {
+            reject(error)
+          }
+
+          const count = result.affectedRows
+
+          this.recordsHaveBeenModified(count > 0)
+
+          resolve(count)
+        })
+      })
+    })
+  }
+
+  /**
    * Get the current Database connection.
    *
    * @return {\Connection}
    */
   getConnection () {
     return this._connection
+  }
+
+  /**
+   * Get the query grammar used by the connection.
+   *
+   * @return {\Kiirus\Database\Query\Grammars\Grammar}
+   */
+  getQueryGrammar () {
+    return this._queryGrammar
   }
 
   /**
@@ -253,12 +288,47 @@ module.exports = class Connection {
   }
 
   /**
+   * Prepare the query bindings for execution.
+   *
+   * @param  {array}  bindings
+   * @return {array}
+   */
+  prepareBindings (bindings) {
+    const grammar = this.getQueryGrammar()
+
+    for (const [key, value] of bindings.entries()) {
+      // We need to transform all instances of DateTimeInterface into the actual
+      // date string. Each query grammar maintains its own date string format
+      // so we'll just ask the grammar for the format to get from the date.
+      if (value instanceof Date) {
+        bindings[key] = new DateTime(value).format(grammar.getDateFormat())
+      } else if (value === false) {
+        bindings[key] = 0
+      }
+    }
+
+    return bindings
+  }
+
+  /**
    * Determine if the connection in a "dry run".
    *
    * @return {boolean}
    */
   pretending () {
     return this._pretending === true
+  }
+
+  /**
+   * Indicate if any records have been modified.
+   *
+   * @param  {boolean}  value
+   * @return {void}
+   */
+  recordsHaveBeenModified (value = true) {
+    if (!this._recordsModified) {
+      this._recordsModified = value
+    }
   }
 
   /**
@@ -277,22 +347,45 @@ module.exports = class Connection {
    *
    * @param  {string}  query
    * @param  {array}   bindings
-   * @return {boolean}
+   * @return {Promise<boolean>}
    */
   statement (query, bindings = []) {
-    return this._run(query, bindings)
+    return this._run(query, bindings, (query, bindings) => {
+      if (this.pretending()) {
+        return Promise.resolve(true)
+      }
 
-    // return this._run(query, bindings, (query, bindings) => {
-    //   if (this.pretending()) {
-    //     return true
-    //   }
+      return new Promise((resolve, reject) => {
+        this._connection.query(query, bindings, (error, rows) => {
+          let results = []
 
-    //   this.bindValues(statement, this.prepareBindings(bindings))
+          this.disconnect()
 
-    //   this.recordsHaveBeenModified()
+          if (error) {
+            reject(error)
+          }
 
-    //   return statement.execute()
-    // })
+          if (rows !== undefined) {
+            results = new Collection(rows)
+          }
+
+          this.recordsHaveBeenModified()
+
+          resolve(results)
+        })
+      })
+    })
+  }
+
+  /**
+   * Run an update statement against the database.
+   *
+   * @param  {string}  query
+   * @param  {array}   bindings
+   * @return {Promise<number>}
+   */
+  update (query, bindings = []) {
+    return this.affectingStatement(query, bindings)
   }
 
   /**

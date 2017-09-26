@@ -1412,8 +1412,38 @@ describe('QueryBuilder', () => {
       const connectionMock = createMock(builder.getConnection())
 
       connectionMock.expects('insert').once().withArgs('insert into "users" ("email") values (CURRENT TIMESTAMP)', []).returns(Promise.resolve(true))
-      builder.from('users').insert({'email': new Raw('CURRENT TIMESTAMP')}).then((result) => {
-        expect(result).to.be.equal(true)
+      builder.from('users')
+        .insert({'email': new Raw('CURRENT TIMESTAMP')}).then((result) => {
+          expect(result).to.be.equal(true)
+        })
+    })
+
+    it('Multiple Inserts With Expression Values', () => {
+      const builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('insert').once().withArgs('insert into "users" ("email") values (UPPER(\'Foo\')), (LOWER(\'Foo\'))', []).returns(Promise.resolve(true))
+      builder.from('users')
+        .insert([{'email': new Raw("UPPER('Foo')")}, {'email': new Raw("LOWER('Foo')")}]).then((result) => {
+          expect(result).to.be.equal(true)
+        })
+    })
+
+    it('Update Method', () => {
+      let builder = builderStub.getBuilder()
+      let connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update "users" set "email" = ?, "name" = ? where "id" = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users').where('id', '=', 1).update({'email': 'foo', 'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(1)
+      })
+
+      builder = builderStub.getMySqlBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update `users` set `email` = ?, `name` = ? where `id` = ? order by `foo` desc limit 5', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users').where('id', '=', 1).orderBy('foo', 'desc').limit(5).update({'email': 'foo', 'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(1)
       })
     })
 

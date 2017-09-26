@@ -1381,6 +1381,20 @@ module.exports = class Builder {
   }
 
   /**
+   * Update a record in the database.
+   *
+   * @param  {array}  values
+   * @return {number}
+   */
+  update (values) {
+    const sql = this.grammar.compileUpdate(this, values)
+
+    return this.connection.update(sql, this._cleanBindings(
+      this.grammar.prepareBindingsForUpdate(this.bindings, values)
+    ))
+  }
+
+  /**
    * Add a union statement to the query.
    *
    * @param  {\Kiirus\Database\Query\Builder|static}
