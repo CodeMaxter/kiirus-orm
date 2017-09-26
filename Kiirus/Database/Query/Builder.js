@@ -225,15 +225,11 @@ module.exports = class Builder {
    * @return {array}
    */
   _cleanBindings (bindings) {
-    const result = []
+    const result = Object.entries(bindings).map(([key, binding]) => {
+      return !(binding instanceof Expression) ? binding : undefined
+    }).filter((bindings) => bindings !== undefined)
 
-    for (const key in bindings) {
-      if (!(bindings[key] instanceof Expression)) {
-        result.push(bindings[key])
-      }
-    }
-
-    return result
+    return Object.values(result)
   }
 
   /**

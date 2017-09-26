@@ -76,22 +76,22 @@ module.exports = class Arr {
    * @param  {array}  array
    * @return {array}
    */
-  static flatten (array) {
-    const results = []
-
-    const arrayFlatten = (items) => {
-      for (let key in items) {
-        if (items[key] !== null && typeof items[key] === 'object') {
-          arrayFlatten(items[key])
-        } else {
-          results.push(items[key])
-        }
-      }
+  static flatten (list, depth = Infinity) {
+    if (depth === 0) {
+      return list
     }
 
-    arrayFlatten(array)
+    return Object.entries(list).reduce((accumulator, [key, item]) => {
+      if (Array.isArray(item)) {
+        accumulator.push(...this.flatten(item, depth - 1))
+      } else if (Helper.isPlainObject(item)) {
+        accumulator.push(...this.flatten(item, depth))
+      } else {
+        accumulator.push(item)
+      }
 
-    return results
+      return accumulator
+    }, [])
   }
 
   /**

@@ -4,6 +4,7 @@ const expect = require('chai').expect
 
 const Arr = require('./../Kiirus/Support/Arr')
 const Helper = require('./../Kiirus/Support/Helper')
+const Raw = require('./../Kiirus/Database/Query/Expression')
 
 describe('Arr', () => {
   describe('#except', () => {
@@ -44,7 +45,14 @@ describe('Arr', () => {
 
   describe('#flatten', () => {
     it('Array Flatten', () => {
-      expect(['taylor', 'php', 'javascript', null]).to.deep.equal(Arr.flatten({'name': 'taylor', 'languages': ['php', 'javascript', null]}))
+      const raw = new Raw('CURRENT TIMESTAMP')
+
+      expect(Arr.flatten([{'name': 'alvaro'}])).to.deep.equal(['alvaro'])
+      expect(Arr.flatten({'name': 'alvaro', 'languages': ['php', 'javascript', null]})).to.deep.equal(['alvaro', 'php', 'javascript', null])
+      expect(Arr.flatten([1, [2, [3]], 4], 2)).to.deep.equal([1, 2, 3, 4])
+      expect(Arr.flatten([1, [2, [3]], 4], 1)).to.deep.equal([1, 2, [3], 4])
+      expect(Arr.flatten([1, [2, [3]], 4], 0)).to.deep.equal([1, [2, [3]], 4])
+      expect(Arr.flatten({'email': raw}, 1)).to.deep.equal([raw])
     })
   })
 
@@ -134,11 +142,11 @@ describe('Arr', () => {
   describe('#pluck', function () {
     it('Array Pluck', function () {
       let testArray = [
-        {'developer': {'name': 'Taylor'}},
+        {'developer': {'name': 'Alvaro'}},
         {'developer': {'name': 'Abigail'}}
       ]
       testArray = Arr.pluck(testArray, 'developer.name')
-      expect(testArray).to.deep.equal(['Taylor', 'Abigail'])
+      expect(testArray).to.deep.equal(['Alvaro', 'Abigail'])
 
       testArray = [{'id': 1, 'foo': 'bar'}, {'id': 10, 'foo': 'baz'}]
       testArray = Arr.pluck(testArray, 'foo', 'id')

@@ -1406,5 +1406,19 @@ describe('QueryBuilder', () => {
         expect(result).to.be.equal(1)
       })
     })
+
+    it('Insert Method Respects Raw Bindings', () => {
+      const builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('insert').once().withArgs('insert into "users" ("email") values (CURRENT TIMESTAMP)', []).returns(Promise.resolve(true))
+      builder.from('users').insert({'email': new Raw('CURRENT TIMESTAMP')}).then((result) => {
+        expect(result).to.be.equal(true)
+      })
+    })
+
+    it('', () => {
+
+    })
   })
 })

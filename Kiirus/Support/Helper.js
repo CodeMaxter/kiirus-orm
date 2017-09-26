@@ -194,6 +194,23 @@ module.exports = class Helper {
   }
 
   /**
+   * Checks if value is a plain object, that is, an object created by the Object
+   * constructor or one with a [[Prototype]] of null.
+   *
+   * @param {*} value
+   * @return {boolean}
+   */
+  static isPlainObject (value) {
+    if (!Helper.isSet(value)) {
+      return false
+    }
+
+    return !(value.constructor &&
+      !Object.hasOwnProperty.call(value, 'constructor') &&
+      !Object.hasOwnProperty.call(value.constructor.prototype, 'isPrototypeOf'))
+  }
+
+  /**
    * Check if a value is set
    *
    * @param {*} value

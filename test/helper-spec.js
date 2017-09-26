@@ -86,6 +86,24 @@ describe('Helper', () => {
     })
   })
 
+  describe('#isPlainObject', () => {
+    it('Checks For A Plain Object', () => {
+      function Foo () {
+        this.a = 1
+      }
+
+      class Collection {
+      }
+
+      const plain = {'x': 1, 'y': 2, z: {foo: 'var', baz: {name: 'john', lastname: 'doe'}}}
+
+      expect(Helper.isPlainObject(plain)).to.be.equal(true)
+      expect(Helper.isPlainObject(Object.create(null))).to.be.equal(true)
+      expect(Helper.isPlainObject(new Foo())).to.be.equal(false)
+      expect(Helper.isPlainObject(new Collection())).to.be.equal(false)
+    })
+  })
+
   describe('#isSet', () => {
     it('Check Is a Var is Set', () => {
       expect(Helper.isSet(6)).to.equal(true)
