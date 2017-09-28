@@ -9,8 +9,10 @@ const Processor = require('./../../Kiirus/Database/Query/Processors/Processor')
 const SQLiteGrammar = require('./../../Kiirus/Database/Query/Grammars/SQLiteGrammar')
 const SqlServerGrammar = require('./../../Kiirus/Database/Query/Grammars/SqlServerGrammar')
 
+const config = require('./../../examples/config/database')
+
 const getBuilder = () => {
-  const connection = new Connection()
+  const connection = new Connection(config)
   const grammar = new Grammar()
   const processor = new Processor()
   const builder = new Builder(connection, grammar, processor)

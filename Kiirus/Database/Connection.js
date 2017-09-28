@@ -1,6 +1,5 @@
 'use strict'
 
-const Collection = require('./../Database/Ceres/Collection')
 const DateTime = require('./../Support/DateTime')
 const Processor = require('./Query/Processors/Processor')
 const QueryGrammar = require('./Query/Grammars/Grammar')
@@ -53,7 +52,7 @@ module.exports = class Connection {
      *
      * @var {\Kiirus\Database\Query\Processors\Processor}
      */
-    this._postProcessor = null
+    this._postProcessor = undefined
 
     /**
      * Indicates if the connection is in a "dry run".
@@ -81,7 +80,7 @@ module.exports = class Connection {
      *
      * @var {function}
      */
-    this._reconnector = null
+    this._reconnector = undefined
 
     /**
      * Indicates if changes have been made to the database.
@@ -89,6 +88,13 @@ module.exports = class Connection {
      * @var {number}
      */
     this._recordsModified = false
+
+    /**
+     * The schema grammar implementation.
+     *
+     * @var {\Kiirus\Database\Schema\Grammars\Grammar}
+     */
+    this._schemaGrammar = undefined
 
     /**
      * The table prefix for the connection.
@@ -162,7 +168,6 @@ module.exports = class Connection {
     // caused by a connection that has been lost. If that is the cause, we'll try
     // to re-establish connection and re-run the query with a fresh connection.
     try {
-      // result = this._runQueryPromise(query, bindings).then((result) => {
       result = this._runQueryCallback(query, bindings, callback)
     } catch (e) {
       result = this._handleQueryException(
@@ -201,40 +206,6 @@ module.exports = class Connection {
       // lot more helpful to the developer instead of just the database's errors.
       throw new Error(query, this.prepareBindings(bindings), e)
     }
-  }
-
-  /**
-   * Run an SQL statement and get the number of rows affected.
-   *
-   * @param  {string}  query
-   * @param  {array}   bindings
-   * @return {number}
-   */
-  affectingStatement (query, bindings = []) {
-    return this._run(query, bindings, (query, bindings) => {
-      if (this.pretending()) {
-        return Promise.resolve(0)
-      }
-
-      // For update or delete statements, we want to get the number of rows affected
-      // by the statement and return that back to the developer. We'll first need
-      // to execute the statement and then we'll use PDO to fetch the affected.
-      return new Promise((resolve, reject) => {
-        this._connection.query(query, bindings, (error, result) => {
-          this.disconnect()
-
-          if (error) {
-            reject(error)
-          }
-
-          const count = result.affectedRows
-
-          this.recordsHaveBeenModified(count > 0)
-
-          resolve(count)
-        })
-      })
-    })
   }
 
   /**
@@ -320,6 +291,21 @@ module.exports = class Connection {
   }
 
   /**
+   * Reconnect to the database.
+   *
+   * @return {void}
+   *
+   * @throws {\LogicException}
+   */
+  reconnect () {
+    if (typeof this._reconnector === 'function') {
+      return this._reconnector(this)
+    }
+
+    throw new Error('LogicException: Lost connection and no reconnector available.')
+  }
+
+  /**
    * Indicate if any records have been modified.
    *
    * @param  {boolean}  value
@@ -343,38 +329,15 @@ module.exports = class Connection {
   }
 
   /**
-   * Execute an SQL statement and return the boolean result.
+   * Set the reconnect instance on the connection.
    *
-   * @param  {string}  query
-   * @param  {array}   bindings
-   * @return {Promise<boolean>}
+   * @param  {function}  reconnector
+   * @return {Kiirus\Database\Connection}
    */
-  statement (query, bindings = []) {
-    return this._run(query, bindings, (query, bindings) => {
-      if (this.pretending()) {
-        return Promise.resolve(true)
-      }
+  setReconnector (reconnector) {
+    this._reconnector = reconnector
 
-      return new Promise((resolve, reject) => {
-        this._connection.query(query, bindings, (error, rows) => {
-          let results = []
-
-          this.disconnect()
-
-          if (error) {
-            reject(error)
-          }
-
-          if (rows !== undefined) {
-            results = new Collection(rows)
-          }
-
-          this.recordsHaveBeenModified()
-
-          resolve(results)
-        })
-      })
-    })
+    return this
   }
 
   /**
@@ -404,5 +367,14 @@ module.exports = class Connection {
    */
   useDefaultPostProcessor () {
     this._postProcessor = this._getDefaultPostProcessor()
+  }
+
+  /**
+   * Set the schema grammar to the default implementation.
+   *
+   * @return {void}
+   */
+  useDefaultSchemaGrammar () {
+    this._schemaGrammar = this._getDefaultSchemaGrammar()
   }
 }

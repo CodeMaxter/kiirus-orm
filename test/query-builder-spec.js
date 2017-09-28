@@ -1366,7 +1366,9 @@ describe('QueryBuilder', () => {
       }).orWhere('id', '=', 'foo').groupBy('id').having('id', '=', 5)
       expect(builder.getBindings()).to.be.deep.equal(['bar', 4, '%.com', 'foo', 5])
     })
+  })
 
+  describe('#insert', () => {
     it('Insert Method', () => {
       const builder = builderStub.getBuilder()
       const connectionMock = createMock(builder.getConnection())
@@ -1428,7 +1430,9 @@ describe('QueryBuilder', () => {
           expect(result).to.be.equal(true)
         })
     })
+  })
 
+  describe('#update', () => {
     it('Update Method', () => {
       let builder = builderStub.getBuilder()
       let connectionMock = createMock(builder.getConnection())

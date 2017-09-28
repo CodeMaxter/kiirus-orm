@@ -221,7 +221,7 @@ module.exports = class MySqlGrammar extends Grammar {
    * @return {string}
    */
   compileUpdate (query, values) {
-    const table = this.wrapTable(query.from)
+    const table = this.wrapTable(query.table)
 
     // Each one of the columns in the update statements needs to be wrapped in the
     // keyword identifiers, also a place-holder needs to be created for each of
@@ -233,7 +233,7 @@ module.exports = class MySqlGrammar extends Grammar {
     // can get join statements to attach to other tables when they're needed.
     let joins = ''
 
-    if (Helper.isSet(query.joins)) {
+    if (query.joins.length > 0) {
       joins = ' ' + this._compileJoins(query, query.joins)
     }
 
@@ -247,15 +247,15 @@ module.exports = class MySqlGrammar extends Grammar {
     // If the query has an order by clause we will compile it since MySQL supports
     // order bys on update statements. We'll compile them using the typical way
     // of compiling order bys. Then they will be appended to the SQL queries.
-    if (!Helper.empty(query.orders)) {
+    if (query.orders.length > 0) {
       sql += ' ' + this._compileOrders(query, query.orders)
     }
 
     // Updates on MySQL also supports "limits", which allow you to easily update a
     // single record very easily. This is not supported by all database engines
     // so we have customized this update compiler here in order to add it in.
-    if (Helper.isSet(query.limit)) {
-      sql += ' ' + this._compileLimit(query, query.limit)
+    if (Helper.isSet(query.limitProperty)) {
+      sql += ' ' + this._compileLimit(query, query.limitProperty)
     }
 
     return sql.trimRight()
