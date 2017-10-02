@@ -21,7 +21,7 @@ const getBuilder = () => {
 }
 
 const getMySqlBuilder = () => {
-  const connection = new Connection()
+  const connection = new Connection(config)
   const grammar = new MySqlGrammar()
   const processor = new Processor()
   const builder = new Builder(connection, grammar, processor)
@@ -30,7 +30,7 @@ const getMySqlBuilder = () => {
 }
 
 const getPostgresBuilder = () => {
-  const connection = new Connection()
+  const connection = new Connection(config)
   const grammar = new PostgresGrammar()
   const processor = new Processor()
   const builder = new Builder(connection, grammar, processor)
@@ -39,7 +39,7 @@ const getPostgresBuilder = () => {
 }
 
 const getSQLiteBuilder = () => {
-  const connection = new Connection()
+  const connection = new Connection(config)
   const grammar = new SQLiteGrammar()
   const processor = new Processor()
   const builder = new Builder(connection, grammar, processor)
@@ -48,7 +48,7 @@ const getSQLiteBuilder = () => {
 }
 
 const getSqlServerBuilder = () => {
-  const connection = new Connection()
+  const connection = new Connection(config)
   const grammar = new SqlServerGrammar()
   const processor = new Processor()
   const builder = new Builder(connection, grammar, processor)

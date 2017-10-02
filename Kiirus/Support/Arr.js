@@ -19,6 +19,22 @@ module.exports = class Arr {
   }
 
   /**
+   * Add an element to an array using "dot" notation if it doesn't exist.
+   *
+   * @param  {array}   array
+   * @param  {string}  key
+   * @param  {*}       value
+   * @return {array}
+   */
+  static add (array, key, value) {
+    if (this.get(array, key) === undefined) {
+      this.set(array, key, value)
+    }
+
+    return array
+  }
+
+  /**
    * Get all of the given array except for a specified array of items.
    *
    * @param  {array}  array
@@ -144,6 +160,38 @@ module.exports = class Arr {
   }
 
   /**
+   * Get an item from an array using "dot" notation.
+   *
+   * @param  {array}   array
+   * @param  {string}  key
+   * @param  {*}   default
+   * @return {*}
+   */
+  static get (array, key, defaultValue) {
+    if (key === undefined) {
+      return array
+    }
+
+    if (array[key] !== undefined) {
+      return array[key]
+    }
+
+    const parts = String(key).split('.')
+
+    for (const segment of parts) {
+      if ((!Array.isArray(array) &&
+        !Helper.isObject(array)) || array[segment] === undefined
+      ) {
+        return Helper.value(defaultValue)
+      }
+
+      array = array[segment]
+    }
+
+    return array
+  }
+
+  /**
    * Determines if an array is associative.
    *
    * An array is "associative" if it doesn't have sequential numerical keys beginning with zero.
@@ -237,6 +285,43 @@ module.exports = class Arr {
     }
 
     return results
+  }
+
+  /**
+   * Set an array item to a given value using "dot" notation.
+   *
+   * If no key is given to the method, the entire array will be replaced.
+   *
+   * @param  {array}   array
+   * @param  {string}  key
+   * @param  {*}   value
+   * @return {array}
+   */
+  static set (array, key, value) {
+    if (key === undefined) {
+      array = value
+
+      return array
+    }
+
+    const keys = key.split('.')
+
+    while (keys.length > 1) {
+      key = keys.shift()
+
+      // If the key doesn't exist at this depth, we will just create an empty array
+      // to hold the next value, allowing us to create the arrays to hold final
+      // values at the correct depth. Then we'll keep digging into the array.
+      if (Helper.empty(array[key]) || !Array.isArray(array[key])) {
+        array[key] = {}
+      }
+
+      array = array[key]
+    }
+
+    array[keys.shift()] = value
+
+    return array
   }
 
   /**

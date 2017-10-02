@@ -11,9 +11,9 @@ module.exports = class Builder {
   /**
    * Create a new query builder instance.
    *
-   * @param  {\Core\Database\Connection}  connection
-   * @param  {\Core\Database\Query\Grammars\Grammar}  grammar
-   * @param  {\Core\Database\Query\Processors\Processor}  processor
+   * @param  {\Kiirus\Database\Connection}  connection
+   * @param  {\Kiirus\Database\Query\Grammars\Grammar}  grammar
+   * @param  {\Kiirus\Database\Query\Processors\Processor}  processor
    * @return {void}
    */
   constructor (connection, grammar, processor) {
@@ -173,305 +173,6 @@ module.exports = class Builder {
   }
 
   /**
-   * Add an array of where clauses to the query.
-   *
-   * @param  {array}  column
-   * @param  {string}  boolean
-   * @param  {string}  method
-   * @return {this}
-   */
-  _addArrayOfWheres (column, boolean, method = 'where') {
-    return this.whereNested((query) => {
-      for (let key in column) {
-        const value = column[key]
-
-        if (Helper.isNumeric(key) && Array.isArray(value)) {
-          query[method](...value)
-        } else {
-          query[method](key, '=', value, boolean)
-        }
-      }
-    }, boolean)
-  }
-
-  /**
-   * Add a date based (year, month, day, time) statement to the query.
-   *
-   * @param  {string}  type
-   * @param  {string}  column
-   * @param  {string}  operator
-   * @param  int  value
-   * @param  {string}  boolean
-   * @return this
-   */
-  _addDateBasedWhere (type, column, operator, value, booleanOperator = 'and') {
-    this.wheres.push({
-      column,
-      type,
-      'boolean': booleanOperator,
-      operator,
-      value
-    })
-
-    this.addBinding(value, 'where')
-
-    return this
-  }
-
-  /**
-   * Remove all of the expressions from a list of bindings.
-   *
-   * @param  {array}  bindings
-   * @return {array}
-   */
-  _cleanBindings (bindings) {
-    const result = Object.entries(bindings).map(([key, binding]) => {
-      return !(binding instanceof Expression) ? binding : undefined
-    }).filter((bindings) => bindings !== undefined)
-
-    return Object.values(result)
-  }
-
-  /**
-   * Create a new query instance for a sub-query.
-   *
-   * @return {\Kiirus\Database\Query\Builder}
-   */
-  _forSubQuery () {
-    return this.newQuery()
-  }
-
-  /**
-   * Determine if the given operator is supported.
-   *
-   * @param  {string}  operator
-   * @return {boolean}
-   */
-  _invalidOperator (operator) {
-    return !this.operators.includes(String(operator).toLowerCase()) &&
-      !this.grammar.getOperators().includes(String(operator).toLowerCase())
-  }
-
-  /**
-   * Determine if the given operator and value combination is legal.
-   *
-   * Prevents using Null values with invalid operators.
-   *
-   * @param  {string}  operator
-   * @param  {*}  value
-   * @return {boolean}
-   */
-  _invalidOperatorAndValue (operator, value) {
-    return value === null && this.operators.includes(operator) &&
-      !['=', '<>', '!='].includes(operator)
-  }
-
-  /**
-   * Parse the sub-select query into SQL and bindings.
-   *
-   * @param  {*}  query
-   * @return {array}
-   */
-  _parseSubSelect (query) {
-    if (query instanceof this.constructor) {
-      query.columns = [query.columns[0]]
-
-      return [query.toSql(), query.getBindings()]
-    } else if (Helper.isString(query)) {
-      return [query, []]
-    } else {
-      throw new Error('Invalid Argument Exception')
-    }
-  }
-
-  /**
-   * Prepare the value and operator for a where clause.
-   *
-   * @param  {string}  value
-   * @param  {string}  operator
-   * @param  {boolean}  useDefault
-   * @return {array}
-   *
-   * @throws {\InvalidArgumentException}
-   */
-  _prepareValueAndOperator (value, operator, useDefault = false) {
-    if (useDefault) {
-      return [operator, '=']
-    } else if (this._invalidOperatorAndValue(operator, value)) {
-      throw new Error('Illegal operator and value combination.')
-    }
-
-    return [value, operator]
-  }
-
-  /**
-   * Run a pagination count query.
-   *
-   * @param  {array}  columns
-   * @return {array}
-   */
-  _runPaginationCountQuery (columns = ['*']) {
-    // We need to save the original bindings, because the cloneWithoutBindings
-    // method delete them from the builder object
-    const bindings = Object.assign({}, this.bindings)
-
-    return this.cloneWithout(['columns', 'orders', 'limit', 'offset'])
-      .cloneWithoutBindings(['select', 'order'])
-      ._setAggregate('count', this._withoutSelectAliases(columns))
-      .get().then((result) => {
-        this.bindings = bindings
-
-        return result.all()
-      })
-  }
-
-  /**
-   * Run the query as a "select" statement against the connection.
-   *
-   * @return {Promise}
-   */
-  _runSelect () {
-    return this.connection.select(
-      this.toSql(),
-      this.getBindings()
-    )
-  }
-
-  /**
-   * Set the aggregate property without running the query.
-   *
-   * @param  {string}  functionName
-   * @param  {array}  columns
-   * @return {\Kiirus\Database\Query\Builder}
-   */
-  _setAggregate (functionName, columns) {
-    this.aggregateProperty = {
-      functionName,
-      columns
-    }
-
-    if (Helper.empty(this.groups)) {
-      this.orders = undefined
-
-      this.bindings['order'] = []
-    }
-
-    return this
-  }
-
-  /**
-   * Strip off the table name or alias from a column identifier.
-   *
-   * @param  {string}  column
-   * @return {string|undefined}
-   */
-  _stripTableForPluck (column) {
-    return column === undefined ? column : Helper.last(column.split(/~\.| ~/gi))
-  }
-
-  /**
-   * Add an external sub-select to the query.
-   *
-   * @param  {string}   column
-   * @param  {\Kiirus\Database\Query\Builder|static}  query
-   * @param  {string}   booleanOperator
-   * @param  {boolean}     not
-   * @return {\Kiirus\Database\Query\Builder}
-   */
-  _whereInExistingQuery (column, query, booleanOperator, not) {
-    const type = not ? 'NotInSub' : 'InSub'
-
-    this.wheres.push({
-      type,
-      column,
-      query,
-      'boolean': booleanOperator
-    })
-
-    this.addBinding(query.getBindings(), 'where')
-
-    return this
-  }
-
-  /**
-   * Add a where in with a sub-select to the query.
-   *
-   * @param  {string}   column
-   * @param  {function} callback
-   * @param  {string}   booleanOperator
-   * @param  {boolean}  not
-   * @return {\Kiirus\Database\Query\Builder}
-   */
-  _whereInSub (column, callback, booleanOperator, not) {
-    const type = not ? 'NotInSub' : 'InSub'
-
-    // To create the exists sub-select, we will actually create a query and call the
-    // provided callback with the query so the developer may set any of the query
-    // conditions they want for the in clause, then we'll put it in this array.
-    const query = this._forSubQuery()
-
-    callback(query)
-
-    this.wheres.push({
-      type,
-      column,
-      query,
-      'boolean': booleanOperator
-    })
-
-    this.addBinding(query.getBindings(), 'where')
-
-    return this
-  }
-
-  /**
-   * Add a full sub-select to the query.
-   *
-   * @param  {string}   column
-   * @param  {string}   operator
-   * @param  {function} callback
-   * @param  {string}   booleanOperator
-   * @return {this}
-   */
-  _whereSub (column, operator, callback, booleanOperator) {
-    const type = 'Sub'
-
-    const query = this._forSubQuery()
-
-    // Once we have the query instance we can simply execute it so it can add all
-    // of the sub-select's conditions to itself, and then we can cache it off
-    // in the array of where clauses for the "main" parent query instance.
-    callback(query)
-
-    this.wheres.push({
-      type,
-      column,
-      operator,
-      query,
-      'boolean': booleanOperator
-    })
-
-    this.addBinding(query.getBindings(), 'where')
-
-    return this
-  }
-
-  /**
-   * Remove the column aliases since they will break count queries.
-   *
-   * @param  {array}  columns
-   * @return {array}
-   */
-  _withoutSelectAliases (columns) {
-    return columns.map((column) => {
-      const aliasPosition = column.toLowerCase().indexOf(' as ')
-
-      return Helper.isString(column) && (aliasPosition) !== -1
-        ? column.substr(0, aliasPosition) : column
-    })
-  }
-
-  /**
    * Add a binding to the query.
    *
    * @param  {*}   value
@@ -499,7 +200,7 @@ module.exports = class Builder {
    *
    * @param  {\Kiirus\Database\Query\Builder|static} query
    * @param  {string}  booleanOperator
-   * @return {this}
+   * @return {\Kiirus\Database\Query\Builder}
    */
   addNestedWhereQuery (query, booleanOperator = 'and') {
     if (query.wheres.length > 0) {
@@ -573,9 +274,29 @@ module.exports = class Builder {
         if (!results.isEmpty()) {
           this.bindings = bindings
 
-          return Number(Helper.changeKeyCase(results[0])['aggregate'])
+          return Number(Helper.changeKeyCase(results.get(0))['aggregate'])
         }
       })
+  }
+
+  /**
+   * Alias for the "avg" method.
+   *
+   * @param  {string}  column
+   * @return {*}
+   */
+  average (column) {
+    return this.avg(column)
+  }
+
+  /**
+   * Retrieve the average of the values of a given column.
+   *
+   * @param  {string}  column
+   * @return {*}
+   */
+  avg (column) {
+    return this.aggregate('avg', [column])
   }
 
   /**
@@ -659,8 +380,8 @@ module.exports = class Builder {
       // If the results has rows, we will get the row and see if the exists column is a
       // boolean true. If there is no results for this query we will return false as
       // there are no rows for this query at all and we can return that info here.
-      if (Helper.isSet(results[0])) {
-        results = results[0]
+      if (Helper.isSet(results.get(0))) {
+        results = results.get(0)
 
         return Boolean(results.exists)
       }
@@ -1669,7 +1390,7 @@ module.exports = class Builder {
    * @param  {function} callback
    * @param  {string}   boolean
    * @param  {boolean}     not
-   * @return {this}
+   * @return {\Kiirus\Database\Query\Builder}
    */
   whereExists (callback, boolean = 'and', not = false) {
     const query = this._forSubQuery()
@@ -1809,7 +1530,7 @@ module.exports = class Builder {
    * @param  {string}  column
    * @param  {string}  booleanOperator
    * @param  {boolean} not
-   * @return {this}
+   * @return {\Kiirus\Database\Query\Builder}
    */
   whereNull (column, booleanOperator = 'and', not = false) {
     const type = not ? 'NotNull' : 'Null'
@@ -1886,5 +1607,304 @@ module.exports = class Builder {
    */
   whereTime (column, operator, value, booleanOperator = 'and') {
     return this._addDateBasedWhere('Time', column, operator, value, booleanOperator)
+  }
+
+  /**
+   * Add an array of where clauses to the query.
+   *
+   * @param  {array}  column
+   * @param  {string}  boolean
+   * @param  {string}  method
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _addArrayOfWheres (column, boolean, method = 'where') {
+    return this.whereNested((query) => {
+      for (let key in column) {
+        const value = column[key]
+
+        if (Helper.isNumeric(key) && Array.isArray(value)) {
+          query[method](...value)
+        } else {
+          query[method](key, '=', value, boolean)
+        }
+      }
+    }, boolean)
+  }
+
+  /**
+   * Add a date based (year, month, day, time) statement to the query.
+   *
+   * @param  {string}  type
+   * @param  {string}  column
+   * @param  {string}  operator
+   * @param  {number}  value
+   * @param  {string}  boolean
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _addDateBasedWhere (type, column, operator, value, booleanOperator = 'and') {
+    this.wheres.push({
+      column,
+      type,
+      'boolean': booleanOperator,
+      operator,
+      value
+    })
+
+    this.addBinding(value, 'where')
+
+    return this
+  }
+
+  /**
+   * Remove all of the expressions from a list of bindings.
+   *
+   * @param  {array}  bindings
+   * @return {array}
+   */
+  _cleanBindings (bindings) {
+    const result = Object.entries(bindings).map(([key, binding]) => {
+      return !(binding instanceof Expression) ? binding : undefined
+    }).filter((bindings) => bindings !== undefined)
+
+    return Object.values(result)
+  }
+
+  /**
+   * Create a new query instance for a sub-query.
+   *
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _forSubQuery () {
+    return this.newQuery()
+  }
+
+  /**
+   * Determine if the given operator is supported.
+   *
+   * @param  {string}  operator
+   * @return {boolean}
+   */
+  _invalidOperator (operator) {
+    return !this.operators.includes(String(operator).toLowerCase()) &&
+      !this.grammar.getOperators().includes(String(operator).toLowerCase())
+  }
+
+  /**
+   * Determine if the given operator and value combination is legal.
+   *
+   * Prevents using Null values with invalid operators.
+   *
+   * @param  {string}  operator
+   * @param  {*}  value
+   * @return {boolean}
+   */
+  _invalidOperatorAndValue (operator, value) {
+    return value === null && this.operators.includes(operator) &&
+      !['=', '<>', '!='].includes(operator)
+  }
+
+  /**
+   * Parse the sub-select query into SQL and bindings.
+   *
+   * @param  {*}  query
+   * @return {array}
+   */
+  _parseSubSelect (query) {
+    if (query instanceof this.constructor) {
+      query.columns = [query.columns[0]]
+
+      return [query.toSql(), query.getBindings()]
+    } else if (Helper.isString(query)) {
+      return [query, []]
+    } else {
+      throw new Error('Invalid Argument Exception')
+    }
+  }
+
+  /**
+   * Prepare the value and operator for a where clause.
+   *
+   * @param  {string}  value
+   * @param  {string}  operator
+   * @param  {boolean}  useDefault
+   * @return {array}
+   *
+   * @throws {\InvalidArgumentException}
+   */
+  _prepareValueAndOperator (value, operator, useDefault = false) {
+    if (useDefault) {
+      return [operator, '=']
+    } else if (this._invalidOperatorAndValue(operator, value)) {
+      throw new Error('Illegal operator and value combination.')
+    }
+
+    return [value, operator]
+  }
+
+  /**
+   * Run a pagination count query.
+   *
+   * @param  {array}  columns
+   * @return {array}
+   */
+  _runPaginationCountQuery (columns = ['*']) {
+    // We need to save the original bindings, because the cloneWithoutBindings
+    // method delete them from the builder object
+    const bindings = Object.assign({}, this.bindings)
+
+    return this.cloneWithout(['columns', 'orders', 'limit', 'offset'])
+      .cloneWithoutBindings(['select', 'order'])
+      ._setAggregate('count', this._withoutSelectAliases(columns))
+      .get().then((result) => {
+        this.bindings = bindings
+
+        return result.all()
+      })
+  }
+
+  /**
+   * Run the query as a "select" statement against the connection.
+   *
+   * @return {Promise}
+   */
+  _runSelect () {
+    return this.connection.select(
+      this.toSql(),
+      this.getBindings()
+    )
+  }
+
+  /**
+   * Set the aggregate property without running the query.
+   *
+   * @param  {string}  functionName
+   * @param  {array}  columns
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _setAggregate (functionName, columns) {
+    this.aggregateProperty = {
+      functionName,
+      columns
+    }
+
+    if (Helper.empty(this.groups)) {
+      this.orders = undefined
+
+      this.bindings['order'] = []
+    }
+
+    return this
+  }
+
+  /**
+   * Strip off the table name or alias from a column identifier.
+   *
+   * @param  {string}  column
+   * @return {string|undefined}
+   */
+  _stripTableForPluck (column) {
+    return column === undefined ? column : Helper.last(column.split(/~\.| ~/gi))
+  }
+
+  /**
+   * Add an external sub-select to the query.
+   *
+   * @param  {string}   column
+   * @param  {\Kiirus\Database\Query\Builder|static}  query
+   * @param  {string}   booleanOperator
+   * @param  {boolean}     not
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _whereInExistingQuery (column, query, booleanOperator, not) {
+    const type = not ? 'NotInSub' : 'InSub'
+
+    this.wheres.push({
+      type,
+      column,
+      query,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(query.getBindings(), 'where')
+
+    return this
+  }
+
+  /**
+   * Add a where in with a sub-select to the query.
+   *
+   * @param  {string}   column
+   * @param  {function} callback
+   * @param  {string}   booleanOperator
+   * @param  {boolean}  not
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _whereInSub (column, callback, booleanOperator, not) {
+    const type = not ? 'NotInSub' : 'InSub'
+
+    // To create the exists sub-select, we will actually create a query and call the
+    // provided callback with the query so the developer may set any of the query
+    // conditions they want for the in clause, then we'll put it in this array.
+    const query = this._forSubQuery()
+
+    callback(query)
+
+    this.wheres.push({
+      type,
+      column,
+      query,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(query.getBindings(), 'where')
+
+    return this
+  }
+
+  /**
+   * Add a full sub-select to the query.
+   *
+   * @param  {string}   column
+   * @param  {string}   operator
+   * @param  {function} callback
+   * @param  {string}   booleanOperator
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  _whereSub (column, operator, callback, booleanOperator) {
+    const type = 'Sub'
+
+    const query = this._forSubQuery()
+
+    // Once we have the query instance we can simply execute it so it can add all
+    // of the sub-select's conditions to itself, and then we can cache it off
+    // in the array of where clauses for the "main" parent query instance.
+    callback(query)
+
+    this.wheres.push({
+      type,
+      column,
+      operator,
+      query,
+      'boolean': booleanOperator
+    })
+
+    this.addBinding(query.getBindings(), 'where')
+
+    return this
+  }
+
+  /**
+   * Remove the column aliases since they will break count queries.
+   *
+   * @param  {array}  columns
+   * @return {array}
+   */
+  _withoutSelectAliases (columns) {
+    return columns.map((column) => {
+      const aliasPosition = column.toLowerCase().indexOf(' as ')
+
+      return Helper.isString(column) && (aliasPosition) !== -1
+        ? column.substr(0, aliasPosition) : column
+    })
   }
 }

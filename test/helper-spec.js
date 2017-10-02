@@ -11,8 +11,8 @@ describe('Helper', () => {
     autoVerify()
   })
 
-  describe('#changeKeyCase', function () {
-    it('Changes The Case Of All Keys In An Object', function () {
+  describe('#changeKeyCase', () => {
+    it('Changes The Case Of All Keys In An Object', () => {
       const target = {'FirSt': 1, 'SecOnd': 4}
       const result = {'FIRST': 1, 'SECOND': 4}
 
@@ -21,7 +21,14 @@ describe('Helper', () => {
     })
   })
 
-  describe('#empty', function () {
+  describe('#diffKey', () => {
+    it('Diff Key', () => {
+      expect(Helper.diffKey({blue: 1, red: 2, green: 3, purple: 4}, {green: 5, blue: 6, yellow: 7, cyan: 8})).to.deep.equal({red: 2, purple: 4})
+      expect(Helper.diffKey({red: 1, green: 2, blue: 3, white: 4}, {red: 5})).to.deep.equal({green: 2, blue: 3, white: 4})
+    })
+  })
+
+  describe('#empty', () => {
     it('Empty variable', function () {
       expect(Helper.empty([])).to.equal(true)
       expect(Helper.empty([1])).to.equal(false)
@@ -166,7 +173,7 @@ describe('Helper', () => {
 
   describe('#merge', () => {
     it('Merge', () => {
-      let result = []
+      const result = []
       result['color'] = 'green'
       result['shape'] = 'trapezoid'
       result[0] = 2

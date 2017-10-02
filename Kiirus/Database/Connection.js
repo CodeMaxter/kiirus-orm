@@ -137,6 +137,38 @@ module.exports = class Connection {
   }
 
   /**
+   * Get the elapsed time since a given starting point.
+   *
+   * @param  {number}    start
+   * @return {number}
+   */
+  _getElapsedTime (start) {
+    const end = Math.floor(Date.now() / 1000)
+
+    return Math.round((end - start), 2)
+  }
+
+  /**
+   * Handle a query exception.
+   *
+   * @param  {\Exception}  e
+   * @param  {string}  query
+   * @param  {array}  bindings
+   * @param  \Closure  callback
+   * @return {*}
+   * @throws {\Exception}
+   */
+  _handleQueryException (e, query, bindings) {
+    if (this._transactions >= 1) {
+      throw e
+    }
+
+    return this._tryAgainIfCausedByLostConnection(
+      e, query, bindings
+    )
+  }
+
+  /**
    * Reconnect to the database if a PDO connection is missing.
    *
    * @return {void}
@@ -215,6 +247,15 @@ module.exports = class Connection {
    */
   getConnection () {
     return this._connection
+  }
+
+  /**
+   * Get the query post processor used by the connection.
+   *
+   * @return {\Kiirs\Database\Query\Processors\Processor}
+   */
+  getPostProcessor () {
+    return this._postProcessor
   }
 
   /**
@@ -325,7 +366,21 @@ module.exports = class Connection {
    * @return {Promise}
    */
   select (query, bindings = []) {
-    return this._run(query, bindings)
+    // This method is overrided in the databases connection classes
+  }
+
+  /**
+   * Set database connection.
+   *
+   * @param  {object|undefined}  connection
+   * @return {this}
+   */
+  setConnection (connection) {
+    this._transactions = 0
+
+    this._connection = connection
+
+    return this
   }
 
   /**
@@ -376,5 +431,17 @@ module.exports = class Connection {
    */
   useDefaultSchemaGrammar () {
     this._schemaGrammar = this._getDefaultSchemaGrammar()
+  }
+
+  /**
+   * Set the table prefix and return the grammar.
+   *
+   * @param  {\Kiirus\Database\Grammar}  grammar
+   * @return {\Kiirus\Database\Grammar}
+   */
+  withTablePrefix (grammar) {
+    grammar.setTablePrefix(this._tablePrefix)
+
+    return grammar
   }
 }

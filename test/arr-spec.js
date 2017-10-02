@@ -7,6 +7,14 @@ const Helper = require('./../Kiirus/Support/Helper')
 const Raw = require('./../Kiirus/Database/Query/Expression')
 
 describe('Arr', () => {
+  describe('#add', () => {
+    it('Array Add', () => {
+      let array = Arr.add({'name': 'Desk'}, 'price', 100)
+
+      expect({'name': 'Desk', 'price': 100}).to.deep.equal(array)
+    })
+  })
+
   describe('#except', () => {
     it('Array Except', () => {
       let array = {'name': 'Desk', 'price': 100}
@@ -107,6 +115,19 @@ describe('Arr', () => {
     })
   })
 
+  describe('#get', () => {
+    it('Array Get', () => {
+      let array = {'products': {'desk': {'price': 100}}}
+      let value = Arr.get(array, 'products.desk')
+
+      expect(value).to.deep.equal({'price': 100})
+
+      array = {'foo': null, 'bar': {'baz': null}}
+      expect(Arr.get(array, 'foo', 'default')).equal(null)
+      expect(Arr.get(array, 'bar.baz', 'default')).equal(null)
+    })
+  })
+
   describe('#isAssoc', () => {
     it('Array Is Assoc', () => {
       expect(Arr.isAssoc({ 'a': 'green', 'b': 'red' })).to.equal(true)
@@ -139,8 +160,8 @@ describe('Arr', () => {
     })
   })
 
-  describe('#pluck', function () {
-    it('Array Pluck', function () {
+  describe('#pluck', () => {
+    it('Array Pluck', () => {
       let testArray = [
         {'developer': {'name': 'Alvaro'}},
         {'developer': {'name': 'Abigail'}}
@@ -151,6 +172,15 @@ describe('Arr', () => {
       testArray = [{'id': 1, 'foo': 'bar'}, {'id': 10, 'foo': 'baz'}]
       testArray = Arr.pluck(testArray, 'foo', 'id')
       expect(testArray).to.deep.equal({1: 'bar', 10: 'baz'})
+    })
+  })
+
+  describe('#set', () => {
+    it('Array Set', () => {
+      let array = {'products': {'desk': {'price': 100}}}
+
+      Arr.set(array, 'products.desk.price', 200)
+      expect({'products': {'desk': {'price': 200}}}).to.deep.equal(array)
     })
   })
 

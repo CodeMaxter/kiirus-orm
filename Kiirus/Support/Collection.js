@@ -20,15 +20,15 @@ module.exports = class Collection {
 
     this.length = this._items.length
 
-    return new Proxy(this, {
-      get: (target, key) => {
-        if (Reflect.has(target, key)) {
-          return Reflect.get(target, key)
-        } else {
-          return target.get(key)
-        }
-      }
-    })
+    // return new Proxy(this, {
+    //   get: (target, key) => {
+    //     if (Reflect.has(target, key)) {
+    //       return Reflect.get(target, key)
+    //     } else {
+    //       return target.get(key)
+    //     }
+    //   }
+    // })
   }
 
   /**

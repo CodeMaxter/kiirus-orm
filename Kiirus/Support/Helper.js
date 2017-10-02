@@ -88,6 +88,26 @@ module.exports = class Helper {
   }
 
   /**
+   * Computes the difference of arrays using keys for comparison
+   *
+   * @param {array} arrayFrom
+   * @return {object}
+   */
+  static diffKey (value) {
+    const result = {}
+
+    for (const key in value) {
+      for (let index = 1, length = arguments.length; index < length; ++index) {
+        if (this.keyExists(key, arguments[index]) !== true) {
+          result[key] = value[key]
+        }
+      }
+    }
+
+    return result
+  }
+
+  /**
    * Determine whether a variable is empty
    *
    * @param {*} data

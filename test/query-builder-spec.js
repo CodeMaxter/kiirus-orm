@@ -1446,9 +1446,11 @@ describe('QueryBuilder', () => {
       connectionMock = createMock(builder.getConnection())
 
       connectionMock.expects('update').once().withArgs('update `users` set `email` = ?, `name` = ? where `id` = ? order by `foo` desc limit 5', ['foo', 'bar', 1]).returns(Promise.resolve(1))
-      builder.from('users').where('id', '=', 1).orderBy('foo', 'desc').limit(5).update({'email': 'foo', 'name': 'bar'}).then((result) => {
-        expect(result).to.be.equal(1)
-      })
+      builder.from('users').where('id', '=', 1).orderBy('foo', 'desc')
+        .limit(5).update({'email': 'foo', 'name': 'bar'})
+        .then((result) => {
+          expect(result).to.be.equal(1)
+        })
     })
 
     it('', () => {

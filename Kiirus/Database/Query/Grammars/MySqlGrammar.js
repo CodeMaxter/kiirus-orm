@@ -128,7 +128,7 @@ module.exports = class MySqlGrammar extends Grammar {
       } else {
         return this.wrap(key) + ' = ' + this.parameter(value)
       }
-    }).join(', ')
+    }).all().join(', ')
   }
 
   /**

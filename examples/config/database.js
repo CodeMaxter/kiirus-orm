@@ -4,5 +4,5 @@ module.exports = {
   database: 'kiirus-orm',
   user: 'root',
   password: 'root'/* ,
-  charset: 'UTF8_GENERAL_CI' */
+  charset: 'utf8_general_ci' */
 }
