@@ -1,6 +1,7 @@
 'use strict'
 
 const Builder = require('./Database/Query/Builder')
+const Expression = require('./Database/Query/Expression')
 const ConnectionFactory = require('./Database/Connectors/ConnectionFactory')
 
 module.exports = {
@@ -14,5 +15,5 @@ module.exports = {
       connection.getPostProcessor()
     )
   },
-  ConnectionFactory: require('./Database/Connectors/ConnectionFactory')
+  Expression
 }

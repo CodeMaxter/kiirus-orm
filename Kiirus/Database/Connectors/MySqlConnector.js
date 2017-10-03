@@ -13,7 +13,7 @@ module.exports = class MySqlConnector extends Connector {
    * @return {object}
    */
   createConnection (options) {
-    const connection = mysql.createConnection(options)
+    const connection = mysql.createPool(options)
 
     return connection
   }

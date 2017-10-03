@@ -119,128 +119,6 @@ module.exports = class Connection {
   }
 
   /**
-   * Get the default query grammar instance.
-   *
-   * @return {\Kiirus\Database\Query\Grammars\Grammar}
-   */
-  _getDefaultQueryGrammar () {
-    return new QueryGrammar()
-  }
-
-  /**
-   * Get the default post processor instance.
-   *
-   * @return {\Kiirus\Database\Query\Processors\Processor}
-   */
-  _getDefaultPostProcessor () {
-    return new Processor()
-  }
-
-  /**
-   * Get the elapsed time since a given starting point.
-   *
-   * @param  {number}    start
-   * @return {number}
-   */
-  _getElapsedTime (start) {
-    const end = Math.floor(Date.now() / 1000)
-
-    return Math.round((end - start), 2)
-  }
-
-  /**
-   * Handle a query exception.
-   *
-   * @param  {\Exception}  e
-   * @param  {string}  query
-   * @param  {array}  bindings
-   * @param  \Closure  callback
-   * @return {*}
-   * @throws {\Exception}
-   */
-  _handleQueryException (e, query, bindings) {
-    if (this._transactions >= 1) {
-      throw e
-    }
-
-    return this._tryAgainIfCausedByLostConnection(
-      e, query, bindings
-    )
-  }
-
-  /**
-   * Reconnect to the database if a PDO connection is missing.
-   *
-   * @return {void}
-   */
-  _reconnectIfMissingConnection () {
-    if (this.getConnection() === undefined) {
-      this.reconnect()
-    }
-  }
-
-  /**
-   * Run a SQL statement and log its execution context.
-   *
-   * @param  {string}    query
-   * @param  {array}     bindings
-   * @param  {string}     type
-   * @return {Promise}
-   *
-   * @throws {\Kiirus\Database\QueryException}
-   */
-  _run (query, bindings, callback) {
-    let result
-
-    this._reconnectIfMissingConnection()
-
-    const start = Math.floor(Date.now() / 1000)
-
-    // Here we will run this query. If an exception occurs we'll determine if it was
-    // caused by a connection that has been lost. If that is the cause, we'll try
-    // to re-establish connection and re-run the query with a fresh connection.
-    try {
-      result = this._runQueryCallback(query, bindings, callback)
-    } catch (e) {
-      result = this._handleQueryException(
-        e, query, bindings
-      )
-    }
-
-    // Once we have run the query we will calculate the time that it took to run and
-    // then log the query, bindings, and execution time so we will report them on
-    // the event that the developer needs them. We'll log time in milliseconds.
-    this.logQuery(
-      query, bindings, this._getElapsedTime(start)
-    )
-
-    return result
-  }
-
-  /**
-   * Run a SQL query or prepare statement.
-   *
-   * @param  {string}    query
-   * @param  {array}     bindings
-   * @return {Promise<\Kiirus\Database\Ceres\Collection>}
-   *
-   * @throws {\Kiirus\Database\QueryException}
-   */
-  _runQueryCallback (query, bindings, callback) {
-    // To execute the statement, we'll simply call the callback, which will actually
-    // run the SQL against the PDO connection. Then we can calculate the time it
-    // took to execute and log the query SQL, bindings and time in our memory.
-    try {
-      return callback(query, bindings)
-    } catch (e) {
-      // If an exception occurs when attempting to run a query, we'll format the error
-      // message to include the bindings with SQL, which will make this exception a
-      // lot more helpful to the developer instead of just the database's errors.
-      throw new Error(query, this.prepareBindings(bindings), e)
-    }
-  }
-
-  /**
    * Get the current Database connection.
    *
    * @return {\Connection}
@@ -443,5 +321,127 @@ module.exports = class Connection {
     grammar.setTablePrefix(this._tablePrefix)
 
     return grammar
+  }
+
+  /**
+   * Get the default query grammar instance.
+   *
+   * @return {\Kiirus\Database\Query\Grammars\Grammar}
+   */
+  _getDefaultQueryGrammar () {
+    return new QueryGrammar()
+  }
+
+  /**
+   * Get the default post processor instance.
+   *
+   * @return {\Kiirus\Database\Query\Processors\Processor}
+   */
+  _getDefaultPostProcessor () {
+    return new Processor()
+  }
+
+  /**
+   * Get the elapsed time since a given starting point.
+   *
+   * @param  {number}    start
+   * @return {number}
+   */
+  _getElapsedTime (start) {
+    const end = Math.floor(Date.now() / 1000)
+
+    return Math.round((end - start), 2)
+  }
+
+  /**
+   * Handle a query exception.
+   *
+   * @param  {\Exception}  e
+   * @param  {string}  query
+   * @param  {array}  bindings
+   * @param  \Closure  callback
+   * @return {*}
+   * @throws {\Exception}
+   */
+  _handleQueryException (e, query, bindings) {
+    if (this._transactions >= 1) {
+      throw e
+    }
+
+    return this._tryAgainIfCausedByLostConnection(
+      e, query, bindings
+    )
+  }
+
+  /**
+   * Reconnect to the database if a PDO connection is missing.
+   *
+   * @return {void}
+   */
+  _reconnectIfMissingConnection () {
+    if (this.getConnection() === undefined) {
+      this.reconnect()
+    }
+  }
+
+  /**
+   * Run a SQL statement and log its execution context.
+   *
+   * @param  {string}    query
+   * @param  {array}     bindings
+   * @param  {string}     type
+   * @return {Promise}
+   *
+   * @throws {\Kiirus\Database\QueryException}
+   */
+  _run (query, bindings, callback) {
+    let result
+
+    this._reconnectIfMissingConnection()
+
+    const start = Math.floor(Date.now() / 1000)
+
+    // Here we will run this query. If an exception occurs we'll determine if it was
+    // caused by a connection that has been lost. If that is the cause, we'll try
+    // to re-establish connection and re-run the query with a fresh connection.
+    try {
+      result = this._runQueryCallback(query, bindings, callback)
+    } catch (e) {
+      result = this._handleQueryException(
+        e, query, bindings
+      )
+    }
+
+    // Once we have run the query we will calculate the time that it took to run and
+    // then log the query, bindings, and execution time so we will report them on
+    // the event that the developer needs them. We'll log time in milliseconds.
+    this.logQuery(
+      query, bindings, this._getElapsedTime(start)
+    )
+
+    return result
+  }
+
+  /**
+   * Run a SQL query or prepare statement.
+   *
+   * @param  {string}    query
+   * @param  {array}     bindings
+   * @return {Promise<\Kiirus\Database\Ceres\Collection>}
+   *
+   * @throws {\Kiirus\Database\QueryException}
+   */
+  _runQueryCallback (query, bindings, callback) {
+    // To execute the statement, we'll simply call the callback, which will actually
+    // run the SQL against the PDO connection. Then we can calculate the time it
+    // took to execute and log the query SQL, bindings and time in our memory.
+    try {
+      return callback(query, bindings)
+    } catch (e) {
+      // If an exception occurs when attempting to run a query, we'll format the error
+      // message to include the bindings with SQL, which will make this exception a
+      // lot more helpful to the developer instead of just the database's errors.
+      throw new Error(query, this.prepareBindings(bindings), e)
+    }
   }
 }
