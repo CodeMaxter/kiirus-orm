@@ -30,6 +30,114 @@ module.exports = class MySqlGrammar extends Grammar {
   }
 
   /**
+   * Compile a delete statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileDelete (query) {
+    const table = this.wrapTable(query.from)
+
+    const where = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
+
+    return Helper.isSet(query.joins)
+      ? this._compileDeleteWithJoins(query, table, where)
+      : this._compileDeleteWithoutJoins(query, table, where)
+  }
+
+  /**
+   * Compile the random statement into SQL.
+   *
+   * @param  {string}  seed
+   * @return {string}
+   */
+  compileRandom (seed) {
+    return 'RAND(' + seed + ')'
+  }
+
+  /**
+   * Compile a select query into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileSelect (query) {
+    let sql = super.compileSelect(query)
+
+    if (query.unions.length > 0) {
+      sql = '(' + sql + ') ' + this._compileUnions(query)
+    }
+
+    return sql
+  }
+
+  /**
+   * Compile an update statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  values
+   * @return {string}
+   */
+  compileUpdate (query, values) {
+    const table = this.wrapTable(query.table)
+
+    // Each one of the columns in the update statements needs to be wrapped in the
+    // keyword identifiers, also a place-holder needs to be created for each of
+    // the values in the list of bindings so we can make the sets statements.
+    const columns = this._compileUpdateColumns(values)
+
+    // If the query has any "join" clauses, we will setup the joins on the builder
+    // and compile them so we can attach them to this update, as update queries
+    // can get join statements to attach to other tables when they're needed.
+    let joins = ''
+
+    if (query.joins.length > 0) {
+      joins = ' ' + this._compileJoins(query, query.joins)
+    }
+
+    // Of course, update queries may also be constrained by where clauses so we'll
+    // need to compile the where clauses and attach it to the query so only the
+    // intended records are updated by the SQL statements we generate to run.
+    const where = this._compileWheres(query)
+
+    let sql = `update ${table}${joins} set ${columns} ${where}`.trimRight()
+
+    // If the query has an order by clause we will compile it since MySQL supports
+    // order bys on update statements. We'll compile them using the typical way
+    // of compiling order bys. Then they will be appended to the SQL queries.
+    if (query.orders.length > 0) {
+      sql += ' ' + this._compileOrders(query, query.orders)
+    }
+
+    // Updates on MySQL also supports "limits", which allow you to easily update a
+    // single record very easily. This is not supported by all database engines
+    // so we have customized this update compiler here in order to add it in.
+    if (Helper.isSet(query.limitProperty)) {
+      sql += ' ' + this._compileLimit(query, query.limitProperty)
+    }
+
+    return sql.trimRight()
+  }
+
+  /**
+   * Prepare the bindings for an update statement.
+   *
+   * Booleans, integers, and doubles are inserted into JSON updates as raw values.
+   *
+   * @param  {array}  bindings
+   * @param  {array}  values
+   * @return {array}
+   */
+  prepareBindingsForUpdate (bindings, values) {
+    values = new Collection(values).reject((value, column) => {
+      return this._isJsonSelector(column) &&
+      ['boolean', 'number'].includes(typeof value)
+    }).all()
+
+    return super.prepareBindingsForUpdate(bindings, values)
+  }
+
+  /**
    * Compile a delete query that uses joins.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -169,113 +277,5 @@ module.exports = class MySqlGrammar extends Grammar {
     }
 
     return '`' + value.replace('`', '``') + '`'
-  }
-
-  /**
-   * Compile a delete statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {string}
-   */
-  compileDelete (query) {
-    const table = this.wrapTable(query.from)
-
-    const where = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
-
-    return Helper.isSet(query.joins)
-      ? this._compileDeleteWithJoins(query, table, where)
-      : this._compileDeleteWithoutJoins(query, table, where)
-  }
-
-  /**
-   * Compile the random statement into SQL.
-   *
-   * @param  {string}  seed
-   * @return {string}
-   */
-  compileRandom (seed) {
-    return 'RAND(' + seed + ')'
-  }
-
-  /**
-   * Compile a select query into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {string}
-   */
-  compileSelect (query) {
-    let sql = super.compileSelect(query)
-
-    if (query.unions.length > 0) {
-      sql = '(' + sql + ') ' + this._compileUnions(query)
-    }
-
-    return sql
-  }
-
-  /**
-   * Compile an update statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  values
-   * @return {string}
-   */
-  compileUpdate (query, values) {
-    const table = this.wrapTable(query.table)
-
-    // Each one of the columns in the update statements needs to be wrapped in the
-    // keyword identifiers, also a place-holder needs to be created for each of
-    // the values in the list of bindings so we can make the sets statements.
-    const columns = this._compileUpdateColumns(values)
-
-    // If the query has any "join" clauses, we will setup the joins on the builder
-    // and compile them so we can attach them to this update, as update queries
-    // can get join statements to attach to other tables when they're needed.
-    let joins = ''
-
-    if (query.joins.length > 0) {
-      joins = ' ' + this._compileJoins(query, query.joins)
-    }
-
-    // Of course, update queries may also be constrained by where clauses so we'll
-    // need to compile the where clauses and attach it to the query so only the
-    // intended records are updated by the SQL statements we generate to run.
-    const where = this._compileWheres(query)
-
-    let sql = `update ${table}${joins} set ${columns} ${where}`.trimRight()
-
-    // If the query has an order by clause we will compile it since MySQL supports
-    // order bys on update statements. We'll compile them using the typical way
-    // of compiling order bys. Then they will be appended to the SQL queries.
-    if (query.orders.length > 0) {
-      sql += ' ' + this._compileOrders(query, query.orders)
-    }
-
-    // Updates on MySQL also supports "limits", which allow you to easily update a
-    // single record very easily. This is not supported by all database engines
-    // so we have customized this update compiler here in order to add it in.
-    if (Helper.isSet(query.limitProperty)) {
-      sql += ' ' + this._compileLimit(query, query.limitProperty)
-    }
-
-    return sql.trimRight()
-  }
-
-  /**
-   * Prepare the bindings for an update statement.
-   *
-   * Booleans, integers, and doubles are inserted into JSON updates as raw values.
-   *
-   * @param  {array}  bindings
-   * @param  {array}  values
-   * @return {array}
-   */
-  prepareBindingsForUpdate (bindings, values) {
-    values = new Collection(values).reject((value, column) => {
-      return this._isJsonSelector(column) &&
-      ['boolean', 'number'].includes(typeof value)
-    }).all()
-
-    return super.prepareBindingsForUpdate(bindings, values)
   }
 }

@@ -740,16 +740,11 @@ module.exports = class Grammar extends BaseGrammar {
    * @return {array}
    */
   prepareBindingsForUpdate (bindings, values) {
-    const bindingsWithoutJoin = Arr.except(bindings, 'join')
+    const bindingsWithoutJoin = Arr.except(
+      Object.assign({}, bindings),
+      ['join', 'select']
+    )
 
-    // return Object.values(
-    //   Helper.merge(bindings.join, values, Arr.flatten(bindingsWithoutJoin))
-    // )
-    // return Object.values([].concat(
-    //   bindings.join,
-    //   values,
-    //   Arr.flatten(bindingsWithoutJoin)
-    // ))
     return [].concat(
       bindings.join,
       Object.values(values),

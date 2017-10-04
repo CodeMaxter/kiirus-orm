@@ -22,6 +22,189 @@ module.exports = class SqlServerGrammar extends Grammar {
   }
 
   /**
+   * Compile a delete statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileDelete (query) {
+    const table = this.wrapTable(query.from)
+
+    const where = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
+
+    return Helper.isSet(query.joins)
+      ? this._compileDeleteWithJoins(query, table, where)
+      : `delete from ${table} ${where}`.trim()
+  }
+
+  /**
+   * Compile an exists statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileExists (query) {
+    const existsQuery = Helper.clone(query)
+
+    existsQuery.columns = []
+
+    return this.compileSelect(existsQuery.selectRaw('1 [exists]').limit(1))
+  }
+
+  /**
+   * Compile the random statement into SQL.
+   *
+   * @param  {string}  seed
+   * @return {string}
+   */
+  compileRandom (seed) {
+    return 'NEWID()'
+  }
+
+  /**
+   * Compile the SQL statement to define a savepoint.
+   *
+   * @param  {string}  name
+   * @return {string}
+   */
+  compileSavepoint (name) {
+    return 'SAVE TRANSACTION ' + name
+  }
+
+  /**
+   * Compile the SQL statement to execute a savepoint rollback.
+   *
+   * @param  {string}  name
+   * @return {string}
+   */
+  compileSavepointRollBack (name) {
+    return 'ROLLBACK TRANSACTION ' + name
+  }
+
+  /**
+   * Compile a select query into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileSelect (query) {
+    if (!query.offsetProperty) {
+      return super.compileSelect(query)
+    }
+
+    // If an offset is present on the query, we will need to wrap the query in
+    // a big "ANSI" offset syntax block. This is very nasty compared to the
+    // other database systems but is necessary for implementing features.
+    if (query.columns.length === 0) {
+      query.columns = ['*']
+    }
+
+    return this._compileAnsiOffset(
+      query, this._compileComponents(query)
+    )
+  }
+
+  /**
+   * Compile a truncate table statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {array}
+   */
+  compileTruncate (query) {
+    const sql = {}
+
+    sql['truncate table ' + this.wrapTable(query.table)] = []
+
+    return sql
+  }
+
+  /**
+   * Compile an update statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  values
+   * @return {string}
+   */
+  compileUpdate (query, values) {
+    const [table, alias] = this._parseUpdateTable(query.table)
+
+    // Each one of the columns in the update statements needs to be wrapped in the
+    // keyword identifiers, also a place-holder needs to be created for each of
+    // the values in the list of bindings so we can make the sets statements.
+    const columns = new Collection(values).map((value, key) => {
+      return this.wrap(key) + ' = ' + this.parameter(value)
+    }).implode(', ')
+
+    // If the query has any "join" clauses, we will setup the joins on the builder
+    // and compile them so we can attach them to this update, as update queries
+    // can get join statements to attach to other tables when they're needed.
+    let joins = ''
+
+    if (Helper.isSet(query.joins)) {
+      joins = ' ' + this._compileJoins(query, query.joins)
+    }
+
+    // Of course, update queries may also be constrained by where clauses so we'll
+    // need to compile the where clauses and attach it to the query so only the
+    // intended records are updated by the SQL statements we generate to run.
+    const where = this._compileWheres(query)
+
+    if (!Helper.empty(joins)) {
+      return `update ${alias} set ${columns} from ${table}${joins} ${where}`.trim()
+    }
+
+    return `update ${table}${joins} set $columns $where`.trim()
+  }
+
+  /**
+   * Get the format for database stored dates.
+   *
+   * @return {string}
+   */
+  getDateFormat () {
+    return 'Y-m-d H:i:s.000'
+  }
+
+  /**
+   * Prepare the bindings for an update statement.
+   *
+   * @param  {array}  bindings
+   * @param  {array}  values
+   * @return {array}
+   */
+  prepareBindingsForUpdate (bindings, values) {
+    // Update statements with joins in SQL Servers utilize an unique syntax. We need to
+    // take all of the bindings and put them on the end of this array since they are
+    // added to the end of the "where" clause statements as typical where clauses.
+    const bindingsWithoutJoin = Arr.except(Object.assign({}, bindings), 'join')
+
+    return [].concat(
+      Object.values(values),
+      bindings.join,
+      Arr.flatten(bindingsWithoutJoin)
+    ).filter((binding) => binding !== undefined)
+  }
+
+  /**
+   * Determine if the grammar supports savepoints.
+   *
+   * @return {boolean}
+   */
+  supportsSavepoints () {
+    return true
+  }
+
+  /**
+   * Wrap a table in keyword identifiers.
+   *
+   * @param  {\Kiirus\Database\Query\Expression|string}  table
+   * @return {string}
+   */
+  wrapTable (table) {
+    return this._wrapTableValuedFunction(super.wrapTable(table))
+  }
+
+  /**
    * Create a full ANSI offset clause for the query.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -244,186 +427,5 @@ module.exports = class SqlServerGrammar extends Grammar {
     }
 
     return table
-  }
-
-  /**
-   * Compile a delete statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {string}
-   */
-  compileDelete (query) {
-    const table = this.wrapTable(query.from)
-
-    const where = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
-
-    return Helper.isSet(query.joins)
-      ? this._compileDeleteWithJoins(query, table, where)
-      : `delete from ${table} ${where}`.trim()
-  }
-
-  /**
-   * Compile an exists statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {string}
-   */
-  compileExists (query) {
-    const existsQuery = Helper.clone(query)
-
-    existsQuery.columns = []
-
-    return this.compileSelect(existsQuery.selectRaw('1 [exists]').limit(1))
-  }
-
-  /**
-   * Compile the random statement into SQL.
-   *
-   * @param  {string}  seed
-   * @return {string}
-   */
-  compileRandom (seed) {
-    return 'NEWID()'
-  }
-
-  /**
-   * Compile the SQL statement to define a savepoint.
-   *
-   * @param  {string}  name
-   * @return {string}
-   */
-  compileSavepoint (name) {
-    return 'SAVE TRANSACTION ' + name
-  }
-
-  /**
-   * Compile the SQL statement to execute a savepoint rollback.
-   *
-   * @param  {string}  name
-   * @return {string}
-   */
-  compileSavepointRollBack (name) {
-    return 'ROLLBACK TRANSACTION ' + name
-  }
-
-  /**
-   * Compile a select query into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {string}
-   */
-  compileSelect (query) {
-    if (!query.offsetProperty) {
-      return super.compileSelect(query)
-    }
-
-    // If an offset is present on the query, we will need to wrap the query in
-    // a big "ANSI" offset syntax block. This is very nasty compared to the
-    // other database systems but is necessary for implementing features.
-    if (query.columns.length === 0) {
-      query.columns = ['*']
-    }
-
-    return this._compileAnsiOffset(
-      query, this._compileComponents(query)
-    )
-  }
-
-  /**
-   * Compile a truncate table statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {array}
-   */
-  compileTruncate (query) {
-    const sql = {}
-
-    sql['truncate table ' + this.wrapTable(query.table)] = []
-
-    return sql
-  }
-
-  /**
-   * Compile an update statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  values
-   * @return {string}
-   */
-  compileUpdate (query, values) {
-    const [table, alias] = this._parseUpdateTable(query.table)
-
-    // Each one of the columns in the update statements needs to be wrapped in the
-    // keyword identifiers, also a place-holder needs to be created for each of
-    // the values in the list of bindings so we can make the sets statements.
-    const columns = new Collection(values).map((value, key) => {
-      return this.wrap(key) + ' = ' + this.parameter(value)
-    }).join(', ')
-
-    // If the query has any "join" clauses, we will setup the joins on the builder
-    // and compile them so we can attach them to this update, as update queries
-    // can get join statements to attach to other tables when they're needed.
-    let joins = ''
-
-    if (Helper.isSet(query.joins)) {
-      joins = ' ' + this._compileJoins(query, query.joins)
-    }
-
-    // Of course, update queries may also be constrained by where clauses so we'll
-    // need to compile the where clauses and attach it to the query so only the
-    // intended records are updated by the SQL statements we generate to run.
-    const where = this._compileWheres(query)
-
-    if (!Helper.empty(joins)) {
-      return `update ${alias} set ${columns} from ${table}${joins} ${where}`.trim()
-    }
-
-    return `update ${table}${joins} set $columns $where`.trim()
-  }
-
-  /**
-   * Get the format for database stored dates.
-   *
-   * @return {string}
-   */
-  getDateFormat () {
-    return 'Y-m-d H:i:s.000'
-  }
-
-  /**
-   * Prepare the bindings for an update statement.
-   *
-   * @param  {array}  bindings
-   * @param  {array}  values
-   * @return {array}
-   */
-  prepareBindingsForUpdate (bindings, values) {
-    // Update statements with joins in SQL Servers utilize an unique syntax. We need to
-    // take all of the bindings and put them on the end of this array since they are
-    // added to the end of the "where" clause statements as typical where clauses.
-    const bindingsWithoutJoin = Arr.except(bindings, 'join')
-
-    return Object.values(
-      Helper.merge(values, bindings['join'], Arr.flatten(bindingsWithoutJoin))
-    )
-  }
-
-  /**
-   * Determine if the grammar supports savepoints.
-   *
-   * @return {boolean}
-   */
-  supportsSavepoints () {
-    return true
-  }
-
-  /**
-   * Wrap a table in keyword identifiers.
-   *
-   * @param  {\Kiirus\Database\Query\Expression|string}  table
-   * @return {string}
-   */
-  wrapTable (table) {
-    return this._wrapTableValuedFunction(super.wrapTable(table))
   }
 }

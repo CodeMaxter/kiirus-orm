@@ -21,15 +21,17 @@ CREATE TABLE IF NOT EXISTS `users` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `lastname` varchar(255) NOT NULL,
-  `age` int(10) unsigned DEFAULT NULL,
+  `age` int(10) unsigned NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `status` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
 
 -- Dumping data for table kiirus-orm.users: ~2 rows (approximately)
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` (`id`, `name`, `lastname`, `age`) VALUES
-	(1, 'John', 'Doe', 32),
-	(2, 'Jane', 'Doe', 21);
+INSERT INTO `users` (`id`, `name`, `lastname`, `age`, `email`, `status`) VALUES
+	(1, 'John', 'Doe', 32, 'john@email.com', 1),
+	(2, 'Jane', 'Doe', 21, 'jane@email.com', 0);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

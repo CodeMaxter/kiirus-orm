@@ -39,78 +39,6 @@ module.exports = class SQLiteGrammar extends Grammar {
   }
 
   /**
-   * Compile a single union statement.
-   *
-   * @param  {array}  union
-   * @return {string}
-   */
-  _compileUnion (union) {
-    const conjuction = union['all'] ? ' union all ' : ' union '
-
-    return conjuction + 'select * from (' + union.query.toSql() + ')'
-  }
-
-  /**
-   * Compile a date based where clause.
-   *
-   * @param  {string}  type
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  where
-   * @return {string}
-   */
-  _dateBasedWhere (type, query, where) {
-    let value = String(where.value).padStart(2, '0')
-
-    value = this.parameter(value)
-
-    return `strftime('${type}', ${this.wrap(where.column)}) ${where.operator} ${value}`
-  }
-
-  /**
-   * Compile a "where date" clause.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  where
-   * @return {string}
-   */
-  _whereDate (query, where) {
-    return this._dateBasedWhere('%Y-%m-%d', query, where)
-  }
-
-  /**
-   * Compile a "where day" clause.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  where
-   * @return {string}
-   */
-  _whereDay (query, where) {
-    return this._dateBasedWhere('%d', query, where)
-  }
-
-  /**
-   * Compile a "where month" clause.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  where
-   * @return {string}
-   */
-  _whereMonth (query, where) {
-    return this._dateBasedWhere('%m', query, where)
-  }
-
-  /**
-   * Compile a "where year" clause.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  where
-   * @return {string}
-   */
-  _whereYear (query, where) {
-    return this._dateBasedWhere('%Y', query, where)
-  }
-
-  /**
    * Compile an insert statement into SQL.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query
@@ -182,5 +110,77 @@ module.exports = class SQLiteGrammar extends Grammar {
     sql['delete from ' + this.wrapTable(query.from)] = []
 
     return sql
+  }
+
+  /**
+   * Compile a single union statement.
+   *
+   * @param  {array}  union
+   * @return {string}
+   */
+  _compileUnion (union) {
+    const conjuction = union['all'] ? ' union all ' : ' union '
+
+    return conjuction + 'select * from (' + union.query.toSql() + ')'
+  }
+
+  /**
+   * Compile a date based where clause.
+   *
+   * @param  {string}  type
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _dateBasedWhere (type, query, where) {
+    let value = String(where.value).padStart(2, '0')
+
+    value = this.parameter(value)
+
+    return `strftime('${type}', ${this.wrap(where.column)}) ${where.operator} ${value}`
+  }
+
+  /**
+   * Compile a "where date" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereDate (query, where) {
+    return this._dateBasedWhere('%Y-%m-%d', query, where)
+  }
+
+  /**
+   * Compile a "where day" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereDay (query, where) {
+    return this._dateBasedWhere('%d', query, where)
+  }
+
+  /**
+   * Compile a "where month" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereMonth (query, where) {
+    return this._dateBasedWhere('%m', query, where)
+  }
+
+  /**
+   * Compile a "where year" clause.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  where
+   * @return {string}
+   */
+  _whereYear (query, where) {
+    return this._dateBasedWhere('%Y', query, where)
   }
 }

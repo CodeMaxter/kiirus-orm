@@ -2,12 +2,12 @@
 
 const expect = require('chai').expect
 
-const Raw = require('./../Kiirus/Database/Query/Expression')
 const Collection = require('./../Kiirus/Database/Ceres/Collection')
+const Raw = require('./../Kiirus/Database/Query/Expression')
 
-const createMock = require('./tools/auto-verify-mock').createMock
 const autoVerify = require('./tools/auto-verify-mock').autoVerify
 const builderStub = require('./stubs/builder')
+const createMock = require('./tools/auto-verify-mock').createMock
 
 describe('QueryBuilder', () => {
   afterEach(() => {
@@ -1451,6 +1451,100 @@ describe('QueryBuilder', () => {
         .then((result) => {
           expect(result).to.be.equal(1)
         })
+    })
+
+    it('Update Method With Joins', () => {
+      let builder = builderStub.getBuilder()
+      let connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update "users" inner join "orders" on "users"."id" = "orders"."user_id" set "email" = ?, "name" = ? where "users"."id" = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users').join('orders', 'users.id', '=', 'orders.user_id')
+        .where('users.id', '=', 1)
+        .update({'email': 'foo', 'name': 'bar'}).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update "users" inner join "orders" on "users"."id" = "orders"."user_id" and "users"."id" = ? set "email" = ?, "name" = ?', [1, 'foo', 'bar']).returns(Promise.resolve(1))
+      builder.from('users').join('orders', (join) => {
+        join.on('users.id', '=', 'orders.user_id')
+          .where('users.id', '=', 1)
+      }).update({'email': 'foo', 'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(1)
+      })
+    })
+
+    it('Update Method With Joins On SqlServer', () => {
+      let builder = builderStub.getSqlServerBuilder()
+      let connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update [users] set [email] = ?, [name] = ? from [users] inner join [orders] on [users].[id] = [orders].[user_id] where [users].[id] = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users').join('orders', 'users.id', '=', 'orders.user_id')
+        .where('users.id', '=', 1)
+        .update({'email': 'foo', 'name': 'bar'}).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getSqlServerBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update [users] set [email] = ?, [name] = ? from [users] inner join [orders] on [users].[id] = [orders].[user_id] and [users].[id] = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users').join('orders', (join) => {
+        join.on('users.id', '=', 'orders.user_id')
+          .where('users.id', '=', 1)
+      }).update({'email': 'foo', 'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(1)
+      })
+    })
+
+    it('Update Method With Joins On MySql', () => {
+      let builder = builderStub.getMySqlBuilder()
+      let connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update `users` inner join `orders` on `users`.`id` = `orders`.`user_id` set `email` = ?, `name` = ? where `users`.`id` = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users')
+        .join('orders', 'users.id', '=', 'orders.user_id')
+        .where('users.id', '=', 1)
+        .update({'email': 'foo', 'name': 'bar'}).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getMySqlBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update `users` inner join `orders` on `users`.`id` = `orders`.`user_id` and `users`.`id` = ? set `email` = ?, `name` = ?', [1, 'foo', 'bar']).returns(Promise.resolve(1))
+      builder.from('users').join('orders', (join) => {
+        join.on('users.id', '=', 'orders.user_id')
+          .where('users.id', '=', 1)
+      }).update({'email': 'foo', 'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(1)
+      })
+    })
+
+    it('Update Method With Joins On SQLite', () => {
+      let builder = builderStub.getSQLiteBuilder()
+      let connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update "users" inner join "orders" on "users"."id" = "orders"."user_id" set "email" = ?, "name" = ? where "users"."id" = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users')
+        .join('orders', 'users.id', '=', 'orders.user_id')
+        .where('users.id', '=', 1)
+        .update({'email': 'foo', 'name': 'bar'}).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getSQLiteBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update "users" inner join "orders" on "users"."id" = "orders"."user_id" and "users"."id" = ? set "email" = ?, "name" = ?', [1, 'foo', 'bar']).returns(Promise.resolve(1))
+      builder.from('users').join('orders', function (join) {
+        join.on('users.id', '=', 'orders.user_id')
+          .where('users.id', '=', 1)
+      }).update({'email': 'foo', 'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(1)
+      })
     })
 
     it('', () => {

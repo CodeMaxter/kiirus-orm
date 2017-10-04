@@ -23,6 +23,103 @@ module.exports = class PostgresGrammar extends Grammar {
   }
 
   /**
+   * Compile a delete statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {string}
+   */
+  compileDelete (query) {
+    const table = this.wrapTable(query.from)
+
+    return Helper.isSet(query.joins)
+      ? this._compileDeleteWithJoins(query, table)
+      : super.compileDelete(query)
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  compileInsert (query, values) {
+    const table = this.wrapTable(query.from)
+
+    return Helper.empty(values)
+      ? `insert into ${table} DEFAULT VALUES`
+      : super.compileInsert(query, values)
+  }
+
+  /**
+   * Compile an insert and get ID statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}   values
+   * @param  {string}  sequence
+   * @return {string}
+   */
+  compileInsertGetId (query, values, sequence) {
+    if (sequence === undefined) {
+      sequence = 'id'
+    }
+
+    return this.compileInsert(query, values) + ' returning ' + this.wrap(sequence)
+  }
+
+  /**
+   * Compile a truncate table statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {array}
+   */
+  compileTruncate (query) {
+    const sql = {}
+
+    sql['truncate ' + this.wrapTable(query.from) + ' restart identity'] = []
+
+    return sql
+  }
+
+  /**
+   * Compile an update statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  values
+   * @return {string}
+   */
+  compileUpdate (query, values) {
+    const table = this.wrapTable(query.from)
+
+    // Each one of the columns in the update statements needs to be wrapped in the
+    // keyword identifiers, also a place-holder needs to be created for each of
+    // the values in the list of bindings so we can make the sets statements.
+    const columns = this.compileUpdateColumns(values)
+
+    const from = this.compileUpdateFrom(query)
+
+    const where = this.compileUpdateWheres(query)
+
+    return `update ${table} set ${columns}${from} ${where}`.trim()
+  }
+
+  /**
+   * Prepare the bindings for an update statement.
+   *
+   * @param  {array}  bindings
+   * @param  {array}  values
+   * @return {array}
+   */
+  prepareBindingsForUpdate (bindings, values) {
+    // Update statements with "joins" in Postgres use an interesting syntax. We need to
+    // take all of the bindings and put them on the end of this array since they are
+    // added to the end of the "where" clause statements as typical where clauses.
+    const bindingsWithoutJoin = Arr.except(Object.assign({}, bindings), 'join')
+
+    return [].concat(
+      Object.values(values),
+      bindings.join,
+      Arr.flatten(bindingsWithoutJoin)
+    ).filter((binding) => binding !== undefined)
+  }
+
+  /**
    * Compile a date based where clause.
    *
    * @param  {string}  type
@@ -221,100 +318,5 @@ module.exports = class PostgresGrammar extends Grammar {
     }
 
     return '"' + value.replace(/"/gi, '""') + '"'
-  }
-
-  /**
-   * Compile a delete statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {string}
-   */
-  compileDelete (query) {
-    const table = this.wrapTable(query.from)
-
-    return Helper.isSet(query.joins)
-      ? this._compileDeleteWithJoins(query, table)
-      : super.compileDelete(query)
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  compileInsert (query, values) {
-    const table = this.wrapTable(query.from)
-
-    return Helper.empty(values)
-      ? `insert into ${table} DEFAULT VALUES`
-      : super.compileInsert(query, values)
-  }
-
-  /**
-   * Compile an insert and get ID statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}   values
-   * @param  {string}  sequence
-   * @return {string}
-   */
-  compileInsertGetId (query, values, sequence) {
-    if (sequence === undefined) {
-      sequence = 'id'
-    }
-
-    return this.compileInsert(query, values) + ' returning ' + this.wrap(sequence)
-  }
-
-  /**
-   * Compile a truncate table statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @return {array}
-   */
-  compileTruncate (query) {
-    const sql = {}
-
-    sql['truncate ' + this.wrapTable(query.from) + ' restart identity'] = []
-
-    return sql
-  }
-
-  /**
-   * Compile an update statement into SQL.
-   *
-   * @param  {\Kiirus\Database\Query\Builder}  query
-   * @param  {array}  values
-   * @return {string}
-   */
-  compileUpdate (query, values) {
-    const table = this.wrapTable(query.from)
-
-    // Each one of the columns in the update statements needs to be wrapped in the
-    // keyword identifiers, also a place-holder needs to be created for each of
-    // the values in the list of bindings so we can make the sets statements.
-    const columns = this.compileUpdateColumns(values)
-
-    const from = this.compileUpdateFrom(query)
-
-    const where = this.compileUpdateWheres(query)
-
-    return `update ${table} set ${columns}${from} ${where}`.trim()
-  }
-
-  /**
-   * Prepare the bindings for an update statement.
-   *
-   * @param  {array}  bindings
-   * @param  {array}  values
-   * @return {array}
-   */
-  prepareBindingsForUpdate (bindings, values) {
-    // Update statements with "joins" in Postgres use an interesting syntax. We need to
-    // take all of the bindings and put them on the end of this array since they are
-    // added to the end of the "where" clause statements as typical where clauses.
-    const bindingsWithoutJoin = Arr.except(bindings, 'join')
-
-    return Object.values(
-      Helper.merge(values, bindings.join, Arr.flatten(bindingsWithoutJoin))
-    )
   }
 }
