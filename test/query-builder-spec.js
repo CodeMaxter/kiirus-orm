@@ -1547,6 +1547,30 @@ describe('QueryBuilder', () => {
       })
     })
 
+    it('Update Method With Joins And Aliases On SqlServer', () => {
+      const builder = builderStub.getSqlServerBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update [u] set [email] = ?, [name] = ? from [users] as [u] inner join [orders] on [u].[id] = [orders].[user_id] where [u].[id] = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users as u').join('orders', 'u.id', '=', 'orders.user_id')
+        .where('u.id', '=', 1).update({'email': 'foo', 'name': 'bar'})
+        .then((result) => {
+          expect(result).to.be.equal(1)
+        })
+    })
+
+    it('Update Method Without Joins On Postgres', () => {
+      const builder = builderStub.getPostgresBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update "users" set "email" = ?, "name" = ? where "id" = ?', ['foo', 'bar', 1]).returns(Promise.resolve(1))
+      builder.from('users').where('id', '=', 1)
+        .update({'email': 'foo', 'name': 'bar'}).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+    })
+
     it('', () => {
 
     })

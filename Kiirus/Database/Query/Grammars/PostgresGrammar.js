@@ -85,16 +85,16 @@ module.exports = class PostgresGrammar extends Grammar {
    * @return {string}
    */
   compileUpdate (query, values) {
-    const table = this.wrapTable(query.from)
+    const table = this.wrapTable(query.table)
 
     // Each one of the columns in the update statements needs to be wrapped in the
     // keyword identifiers, also a place-holder needs to be created for each of
     // the values in the list of bindings so we can make the sets statements.
-    const columns = this.compileUpdateColumns(values)
+    const columns = this._compileUpdateColumns(values)
 
-    const from = this.compileUpdateFrom(query)
+    const from = this._compileUpdateFrom(query)
 
-    const where = this.compileUpdateWheres(query)
+    const where = this._compileUpdateWheres(query)
 
     return `update ${table} set ${columns}${from} ${where}`.trim()
   }
@@ -178,7 +178,7 @@ module.exports = class PostgresGrammar extends Grammar {
     // list of the columns that can be added into this update query clauses.
     return new Collection(values).map((value, key) => {
       return this.wrap(key) + ' = ' + this.parameter(value)
-    }).join(', ')
+    }).implode(', ')
   }
 
   /**
@@ -188,7 +188,7 @@ module.exports = class PostgresGrammar extends Grammar {
    * @return {string|undefined}
    */
   _compileUpdateFrom (query) {
-    if (!Helper.isSet(query.joins)) {
+    if (query.joins.length === 0) {
       return ''
     }
 
@@ -234,7 +234,7 @@ module.exports = class PostgresGrammar extends Grammar {
    * @return {string}
    */
   _compileUpdateWheres (query) {
-    const baseWheres = this.compileWheres(query)
+    const baseWheres = this._compileWheres(query)
 
     if (!Helper.isSet(query.joins)) {
       return baseWheres
