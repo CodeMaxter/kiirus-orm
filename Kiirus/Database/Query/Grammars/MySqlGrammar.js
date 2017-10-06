@@ -36,11 +36,11 @@ module.exports = class MySqlGrammar extends Grammar {
    * @return {string}
    */
   compileDelete (query) {
-    const table = this.wrapTable(query.from)
+    const table = this.wrapTable(query.table)
 
     const where = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
 
-    return Helper.isSet(query.joins)
+    return query.joins.length > 0
       ? this._compileDeleteWithJoins(query, table, where)
       : this._compileDeleteWithoutJoins(query, table, where)
   }
@@ -168,12 +168,12 @@ module.exports = class MySqlGrammar extends Grammar {
     // When using MySQL, delete statements may contain order by statements and limits
     // so we will compile both of those here. Once we have finished compiling this
     // we will return the completed SQL statement so it will be executed for us.
-    if (!Helper.empty(query.orders)) {
+    if (query.orders.length > 0) {
       sql += ' ' + this._compileOrders(query, query.orders)
     }
 
-    if (Helper.isSet(query.limit)) {
-      sql += ' ' + this._compileLimit(query, query.limit)
+    if (Helper.isSet(query.limitProperty)) {
+      sql += ' ' + this._compileLimit(query, query.limitProperty)
     }
 
     return sql
@@ -187,11 +187,11 @@ module.exports = class MySqlGrammar extends Grammar {
    * @return {string}
    */
   _compileJsonUpdateColumn (key, value) {
-    const path = key.split('.')
+    const path = key.split('->')
 
     const field = this._wrapValue(path.shift())
 
-    const accessor = '".' + path.join('.') + '"'
+    const accessor = '"$.' + path.join('.') + '"'
 
     return `${field} = json_set(${field}, ${accessor}, ${value.getValue()})`
   }
@@ -236,7 +236,7 @@ module.exports = class MySqlGrammar extends Grammar {
       } else {
         return this.wrap(key) + ' = ' + this.parameter(value)
       }
-    }).all().join(', ')
+    }).implode(', ')
   }
 
   /**
@@ -246,7 +246,7 @@ module.exports = class MySqlGrammar extends Grammar {
    * @return {boolean}
    */
   _isJsonSelector (value) {
-    return value.includes('.')
+    return value.includes('->')
   }
 
   /**
@@ -256,13 +256,17 @@ module.exports = class MySqlGrammar extends Grammar {
    * @return {string}
    */
   _wrapJsonSelector (value) {
-    const path = value.split('.')
+    const path = value.split('->')
 
-    const field = this.wrapValue(path.shift())
+    const field = this._wrapValue(path.shift())
 
-    return `${field}.'${new Collection(path).map((part) => {
+    // return `${field}$.'${new Collection(path).map((part) => {
+    //   return '"' + part + '"'
+    // }).implode('.')}'`
+
+    return `${field}->'$.${new Collection(path).map((part) => {
       return '"' + part + '"'
-    }).join('.')}'`
+    }).implode('.')}'`
   }
 
   /**
@@ -274,6 +278,13 @@ module.exports = class MySqlGrammar extends Grammar {
   _wrapValue (value) {
     if (value === '*') {
       return value
+    }
+
+    // If the given value is a JSON selector we will wrap it differently than a
+    // traditional value. We will need to split this path and wrap each part
+    // wrapped, etc. Otherwise, we will simply wrap the value as a string.
+    if (this._isJsonSelector(value)) {
+      return this._wrapJsonSelector(value)
     }
 
     return '`' + value.replace('`', '``') + '`'

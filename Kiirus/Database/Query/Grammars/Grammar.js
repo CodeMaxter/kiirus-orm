@@ -605,7 +605,7 @@ module.exports = class Grammar extends BaseGrammar {
   compileDelete (query) {
     const wheres = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
 
-    return `delete from ${this.wrapTable(query.from)} ${wheres}`.trim()
+    return `delete from ${this.wrapTable(query.table)} ${wheres}`.trim()
   }
 
   /**
@@ -687,6 +687,16 @@ module.exports = class Grammar extends BaseGrammar {
     query.columns = original
 
     return sql
+  }
+
+  /**
+   * Compile a truncate table statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {object}
+   */
+  compileTruncate (query) {
+    return {['truncate ' + this.wrapTable(query.table)]: []}
   }
 
   /**

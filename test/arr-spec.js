@@ -197,7 +197,7 @@ describe('Arr', () => {
     it('Test Where', () => {
       let array = [100, '200', 300, '400', 500]
 
-      array = Arr.where(array, function (value, key) {
+      array = Arr.where(array, (value, key) => {
         return Helper.isString(value)
       })
 

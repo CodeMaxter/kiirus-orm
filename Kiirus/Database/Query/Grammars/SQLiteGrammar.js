@@ -106,8 +106,8 @@ module.exports = class SQLiteGrammar extends Grammar {
   compileTruncate (query) {
     const sql = {}
 
-    sql['delete from sqlite_sequence where name = ?'] = [query.from]
-    sql['delete from ' + this.wrapTable(query.from)] = []
+    sql['delete from sqlite_sequence where name = ?'] = [query.table]
+    sql['delete from ' + this.wrapTable(query.table)] = []
 
     return sql
   }

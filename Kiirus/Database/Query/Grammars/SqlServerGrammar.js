@@ -28,11 +28,11 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   compileDelete (query) {
-    const table = this.wrapTable(query.from)
+    const table = this.wrapTable(query.table)
 
     const where = Array.isArray(query.wheres) ? this._compileWheres(query) : ''
 
-    return Helper.isSet(query.joins)
+    return query.joins.length > 0
       ? this._compileDeleteWithJoins(query, table, where)
       : `delete from ${table} ${where}`.trim()
   }
@@ -269,7 +269,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   _compileDeleteWithJoins (query, table, where) {
-    const joins = ' ' + this.compileJoins(query, query.joins)
+    const joins = ' ' + this._compileJoins(query, query.joins)
 
     const alias = table.toLowerCase().includes(' as ') !== false
       ? table.split(' as ')[1] : table

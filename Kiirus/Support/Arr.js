@@ -363,9 +363,7 @@ module.exports = class Arr {
 
     return Object.keys(value)
       .filter(key => {
-        const item = {[key]: value[key]}
-
-        return callback(item, key)
+        return callback(value[key], key)
       })
       .reduce((res, key) => {
         res[key] = value[key]

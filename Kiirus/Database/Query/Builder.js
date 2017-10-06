@@ -357,6 +357,25 @@ module.exports = class Builder {
   }
 
   /**
+   * Delete a record from the database.
+   *
+   * @param  {*}  id
+   * @return {Promise<number>}
+   */
+  delete (id = undefined) {
+    // If an ID is passed to the method, we will set the where clause to check the
+    // ID to let developers to simply and quickly remove a single row from this
+    // database without manually specifying the "where" clauses on the query.
+    if (id !== undefined) {
+      this.where(this.table + '.id', '=', id)
+    }
+
+    return this.connection.delete(
+      this.grammar.compileDelete(this), this.getBindings()
+    )
+  }
+
+  /**
    * Force the query to only return distinct results.
    *
    * @return {\Kiirus\Database\Query\Builder}
@@ -370,7 +389,7 @@ module.exports = class Builder {
   /**
    * Determine if any rows exist for the current query.
    *
-   * @return {boolean}
+   * @return {Promise<boolean>}
    */
   exists () {
     return this.connection.select(
@@ -523,6 +542,15 @@ module.exports = class Builder {
    */
   getProcessor () {
     return this.processor
+  }
+
+  /**
+   * Get the raw array of bindings.
+   *
+   * @return {array}
+   */
+  getRawBindings () {
+    return this.bindings
   }
 
   /**
@@ -1102,6 +1130,17 @@ module.exports = class Builder {
   }
 
   /**
+   * Run a truncate statement on the table.
+   *
+   * @return {void}
+   */
+  truncate () {
+    for (const [sql, bindings] of Object.entries(this.grammar.compileTruncate(this))) {
+      this.connection.statement(sql, bindings)
+    }
+  }
+
+  /**
    * Update a record in the database.
    *
    * @param  {array}  values
@@ -1113,6 +1152,27 @@ module.exports = class Builder {
     return this.connection.update(sql, this._cleanBindings(
       this.grammar.prepareBindingsForUpdate(this.bindings, values)
     ))
+  }
+
+  /**
+   * Insert or update a record matching the attributes, and fill it with values.
+   *
+   * @param  {array}  attributes
+   * @param  {array}  values
+   * @return {Promise<boolean>}
+   */
+  updateOrInsert (attributes, values = []) {
+    // if (!this.where(attributes).exists()) {
+    //   return this.insert(Helper.merge(attributes, values))
+    // }
+
+    return this.where(attributes).exists().then((exists) => {
+      if (!exists) {
+        return this.insert(Helper.merge(attributes, values))
+      } else {
+        return Boolean(this.take(1).update(values))
+      }
+    })
   }
 
   /**

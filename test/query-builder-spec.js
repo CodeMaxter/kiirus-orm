@@ -2,8 +2,13 @@
 
 const expect = require('chai').expect
 
+const Builder = require('./../Kiirus/Database/Query/Builder')
 const Collection = require('./../Kiirus/Database/Ceres/Collection')
+const Connection = require('./../Kiirus/Database/Connection')
+const MySqlGrammar = require('./../Kiirus/Database/Query/Grammars/MySqlGrammar')
+const Processor = require('./../Kiirus/Database/Query/Processors/Processor')
 const Raw = require('./../Kiirus/Database/Query/Expression')
+const SQLiteGrammar = require('./../Kiirus/Database/Query/Grammars/SQLiteGrammar')
 
 const autoVerify = require('./tools/auto-verify-mock').autoVerify
 const builderStub = require('./stubs/builder')
@@ -1568,7 +1573,261 @@ describe('QueryBuilder', () => {
         .update({'email': 'foo', 'name': 'bar'}).then((result) => {
           expect(result).to.be.equal(1)
         })
+    })
 
+    it('Update Method Respects Raw', () => {
+      const builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('update').once().withArgs('update "users" set "email" = foo, "name" = ? where "id" = ?', ['bar', 1]).returns(Promise.resolve(1))
+      builder.from('users').where('id', '=', 1)
+        .update({'email': new Raw('foo'), 'name': 'bar'}).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+    })
+
+    it('Update Or Insert Method', () => {
+      let builder = builderStub.getBuilder()
+      let builderMock = createMock(builder)
+
+      builderMock.expects('where').once().withArgs({'email': 'foo'}).returns(builder)
+      builderMock.expects('exists').once().returns(Promise.resolve(false))
+      builderMock.expects('insert').once().withArgs({'email': 'foo', 'name': 'bar'}).returns(Promise.resolve(true))
+
+      builder.updateOrInsert({'email': 'foo'}, {'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(true)
+      })
+
+      builder = builderStub.getBuilder()
+      builderMock = createMock(builder)
+
+      builderMock.expects('where').once().withArgs({'email': 'foo'}).returns(builder)
+      builderMock.expects('exists').once().returns(Promise.resolve(true))
+      builderMock.expects('take').returns(builder)
+      builderMock.expects('update').once().withArgs({'name': 'bar'}).returns(Promise.resolve(1))
+      builder.updateOrInsert({'email': 'foo'}, {'name': 'bar'}).then((result) => {
+        expect(result).to.be.equal(true)
+      })
+    })
+
+    it('Delete Method', () => {
+      let builder = builderStub.getBuilder()
+      let connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete from "users" where "email" = ?', ['foo']).returns(Promise.resolve(1))
+      builder.from('users').where('email', '=', 'foo').delete().then((result) => {
+        expect(result).to.be.equal(1)
+      })
+
+      builder = builderStub.getBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete from "users" where "users"."id" = ?', [1]).returns(Promise.resolve(1))
+      builder.from('users').delete(1).then((result) => {
+        expect(result).to.be.equal(1)
+      })
+
+      builder = builderStub.getMySqlBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete from `users` where `email` = ? order by `id` asc limit 1', ['foo']).returns(Promise.resolve(1))
+      builder.from('users').where('email', '=', 'foo')
+        .orderBy('id').take(1).delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getSqlServerBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete from [users] where [email] = ?', ['foo']).returns(Promise.resolve(1))
+      builder.from('users').where('email', '=', 'foo')
+        .delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+    })
+
+    it('Delete With Join Method', () => {
+      let builder = builderStub.getMySqlBuilder()
+      let connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete `users` from `users` inner join `contacts` on `users`.`id` = `contacts`.`id` where `email` = ?', ['foo']).returns(Promise.resolve(1))
+      builder.from('users').join('contacts', 'users.id', '=', 'contacts.id')
+        .where('email', '=', 'foo').orderBy('id').limit(1)
+        .delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getMySqlBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete `a` from `users` as `a` inner join `users` as `b` on `a`.`id` = `b`.`user_id` where `email` = ?', ['foo']).returns(Promise.resolve(1))
+      builder.from('users AS a').join('users AS b', 'a.id', '=', 'b.user_id')
+        .where('email', '=', 'foo').orderBy('id').limit(1)
+        .delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getMySqlBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete `users` from `users` inner join `contacts` on `users`.`id` = `contacts`.`id` where `users`.`id` = ?', [1]).returns(Promise.resolve(1))
+      builder.from('users').join('contacts', 'users.id', '=', 'contacts.id')
+        .orderBy('id').take(1)
+        .delete(1).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getSqlServerBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete [users] from [users] inner join [contacts] on [users].[id] = [contacts].[id] where [email] = ?', ['foo']).returns(Promise.resolve(1))
+      builder.from('users').join('contacts', 'users.id', '=', 'contacts.id')
+        .where('email', '=', 'foo')
+        .delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getSqlServerBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete [a] from [users] as [a] inner join [users] as [b] on [a].[id] = [b].[user_id] where [email] = ?', ['foo']).returns(Promise.resolve(1))
+      builder.from('users AS a')
+        .join('users AS b', 'a.id', '=', 'b.user_id')
+        .where('email', '=', 'foo')
+        .orderBy('id')
+        .limit(1)
+        .delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getSqlServerBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete [users] from [users] inner join [contacts] on [users].[id] = [contacts].[id] where [users].[id] = ?', [1]).returns(Promise.resolve(1))
+      builder.from('users').join('contacts', 'users.id', '=', 'contacts.id')
+        .delete(1).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getPostgresBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete from "users" USING "contacts" where "users"."email" = ? and "users"."id" = "contacts"."id"', ['foo']).returns(Promise.resolve(1))
+      builder.from('users').join('contacts', 'users.id', '=', 'contacts.id')
+        .where('users.email', '=', 'foo')
+        .delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getPostgresBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete from "users" as "a" USING "users" as "b" where "email" = ? and "a"."id" = "b"."user_id"', ['foo']).returns(Promise.resolve(1))
+      builder.from('users AS a').join('users AS b', 'a.id', '=', 'b.user_id')
+        .where('email', '=', 'foo')
+        .orderBy('id')
+        .limit(1)
+        .delete().then((result) => {
+          expect(result).to.be.equal(1)
+        })
+
+      builder = builderStub.getPostgresBuilder()
+      connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('delete').once().withArgs('delete from "users" USING "contacts" where "users"."id" = ? and "users"."id" = "contacts"."id"', [1]).returns(Promise.resolve(1))
+      builder.from('users').join('contacts', 'users.id', '=', 'contacts.id')
+        .orderBy('id')
+        .take(1)
+        .delete(1).then((result) => {
+          expect(result).to.be.equal(1)
+        })
+    })
+
+    it('Truncate Method', () => {
+      let builder = builderStub.getBuilder()
+      const connectionMock = createMock(builder.getConnection())
+
+      connectionMock.expects('statement').once().withArgs('truncate "users"', [])
+      builder.from('users').truncate()
+
+      const sqlite = new SQLiteGrammar()
+      builder = builderStub.getBuilder()
+      builder.from('users')
+      expect(sqlite.compileTruncate(builder)).to.be.deep.equal({
+        'delete from sqlite_sequence where name = ?': ['users'],
+        'delete from "users"': []
+      })
+    })
+
+    it('Postgres Insert Get Id', () => {
+      const builder = builderStub.getPostgresBuilder()
+      const processorMock = createMock(builder.getProcessor())
+
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?) returning "id"', ['foo'], 'id').returns(Promise.resolve(1))
+      builder.from('users')
+        .insertGetId({'email': 'foo'}, 'id').then((result) => {
+          expect(result).to.be.equal(1)
+        })
+    })
+
+    it('MySql Wrapping', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users')
+      expect(builder.toSql()).to.be.equal('select * from `users`')
+    })
+
+    it('MySql Update Wrapping Json', () => {
+      const connection = new Connection()
+      const connectionMock = createMock(connection)
+      const grammar = new MySqlGrammar()
+      const processor = new Processor()
+
+      connectionMock.expects('update').once().withArgs(
+        'update `users` set `name` = json_set(`name`, "$.first_name", ?), `name` = json_set(`name`, "$.last_name", ?) where `active` = ?',
+        ['John', 'Doe', 1]
+      )
+
+      const builder = new Builder(connection, grammar, processor)
+      builder.from('users')
+        .where('active', '=', 1)
+        .update({'name->first_name': 'John', 'name->last_name': 'Doe'})
+    })
+
+    it('MySql Update With Json Removes Bindings Correctly', () => {
+      const connection = new Connection()
+      const connectionMock = createMock(connection)
+      const grammar = new MySqlGrammar()
+      const processor = new Processor()
+
+      connectionMock.expects('update').once()
+        .withArgs(
+          'update `users` set `options` = json_set(`options`, "$.enable", false), `updated_at` = ? where `id` = ?',
+          ['2015-05-26 22:02:06', 0]
+        )
+
+      let builder = new Builder(connection, grammar, processor)
+      builder.from('users')
+        .where('id', '=', 0)
+        .update({'options->enable': false, 'updated_at': '2015-05-26 22:02:06'})
+
+      connectionMock.expects('update').once()
+        .withArgs(
+          'update `users` set `options` = json_set(`options`, "$.size", 45), `updated_at` = ? where `id` = ?',
+          ['2015-05-26 22:02:06', 0]
+        )
+      builder = new Builder(connection, grammar, processor)
+      builder.from('users')
+        .where('id', '=', 0)
+        .update({'options->size': 45, 'updated_at': '2015-05-26 22:02:06'})
+    })
+
+    it('MySql Wrapping Json With String', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('items->sku', '=', 'foo-bar')
+
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."sku"\' = ?')
+      expect(builder.getRawBindings()['where'].length).to.be.equal(1)
+      expect(builder.getRawBindings()['where'][0]).to.be.equal('foo-bar')
     })
 
     it('', () => {

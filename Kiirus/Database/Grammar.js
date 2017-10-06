@@ -1,5 +1,6 @@
 'use strict'
 
+const Collection = require('./../Support/Collection')
 const Expression = require('./Query/Expression')
 
 module.exports = class Grammar {
@@ -10,54 +11,6 @@ module.exports = class Grammar {
      * @var {string}
      */
     this._tablePrefix = ''
-  }
-
-  /**
-   * Wrap a value that has an alias.
-   *
-   * @param  {string}  value
-   * @param  {boolean}  prefixAlias
-   * @return {string}
-   */
-  _wrapAliasedValue (value, prefixAlias = false) {
-    const segments = value.split(/\s+as\s+/i)
-
-    // If we are wrapping a table we need to prefix the alias with the table prefix
-    // as well in order to generate proper syntax. If this is a column of course no
-    // prefix is necessary. The condition will be true when from wrapTable.
-    if (prefixAlias) {
-      segments[1] = this._tablePrefix + segments[1]
-    }
-
-    return this.wrap(segments[0]) + ' as ' + this._wrapValue(segments[1])
-  }
-
-  /**
-   * Wrap the given value segments.
-   *
-   * @param  {array}  segments
-   * @return {string}
-   */
-  _wrapSegments (segments) {
-    return segments.map((segment, key) => {
-      return key === 0 && segments.length > 1
-        ? this.wrapTable(segment)
-        : this._wrapValue(segment)
-    }).join('.')
-  }
-
-  /**
-   * Wrap a single string in keyword identifiers.
-   *
-   * @param  {string}  value
-   * @return {string}
-   */
-  _wrapValue (value) {
-    if (value !== '*') {
-      return '"' + value.replace('"', '""') + '"'
-    }
-
-    return value
   }
 
   /**
@@ -156,7 +109,7 @@ module.exports = class Grammar {
     // If the value being wrapped has a column alias we will need to separate out
     // the pieces so we can wrap each of the segments of the expression on it
     // own, and then joins them both back together with the "as" connector.
-    if (value.toLowerCase().indexOf(' as ') !== -1) {
+    if (value.toLowerCase().includes(' as ') !== false) {
       return this._wrapAliasedValue(value, prefixAlias)
     }
 
@@ -175,5 +128,53 @@ module.exports = class Grammar {
     }
 
     return this.getValue(table)
+  }
+
+  /**
+   * Wrap a value that has an alias.
+   *
+   * @param  {string}  value
+   * @param  {boolean}  prefixAlias
+   * @return {string}
+   */
+  _wrapAliasedValue (value, prefixAlias = false) {
+    const segments = value.split(/\s+as\s+/i)
+
+    // If we are wrapping a table we need to prefix the alias with the table prefix
+    // as well in order to generate proper syntax. If this is a column of course no
+    // prefix is necessary. The condition will be true when from wrapTable.
+    if (prefixAlias) {
+      segments[1] = this._tablePrefix + segments[1]
+    }
+
+    return this.wrap(segments[0]) + ' as ' + this._wrapValue(segments[1])
+  }
+
+  /**
+   * Wrap the given value segments.
+   *
+   * @param  {array}  segments
+   * @return {string}
+   */
+  _wrapSegments (segments) {
+    return new Collection(segments).map((segment, key) => {
+      return Number(key) === 0 && segments.length > 1
+        ? this.wrapTable(segment)
+        : this._wrapValue(segment)
+    }).implode('.')
+  }
+
+  /**
+   * Wrap a single string in keyword identifiers.
+   *
+   * @param  {string}  value
+   * @return {string}
+   */
+  _wrapValue (value) {
+    if (value !== '*') {
+      return '"' + value.replace('"', '""') + '"'
+    }
+
+    return value
   }
 }

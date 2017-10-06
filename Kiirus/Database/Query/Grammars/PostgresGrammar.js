@@ -29,9 +29,9 @@ module.exports = class PostgresGrammar extends Grammar {
    * @return {string}
    */
   compileDelete (query) {
-    const table = this.wrapTable(query.from)
+    const table = this.wrapTable(query.table)
 
-    return Helper.isSet(query.joins)
+    return query.joins.length > 0
       ? this._compileDeleteWithJoins(query, table)
       : super.compileDelete(query)
   }
@@ -40,7 +40,7 @@ module.exports = class PostgresGrammar extends Grammar {
    * {@inheritdoc}
    */
   compileInsert (query, values) {
-    const table = this.wrapTable(query.from)
+    const table = this.wrapTable(query.table)
 
     return Helper.empty(values)
       ? `insert into ${table} DEFAULT VALUES`
@@ -72,7 +72,7 @@ module.exports = class PostgresGrammar extends Grammar {
   compileTruncate (query) {
     const sql = {}
 
-    sql['truncate ' + this.wrapTable(query.from) + ' restart identity'] = []
+    sql['truncate ' + this.wrapTable(query.table) + ' restart identity'] = []
 
     return sql
   }
@@ -144,7 +144,7 @@ module.exports = class PostgresGrammar extends Grammar {
   _compileDeleteWithJoins (query, table) {
     const using = ' USING ' + new Collection(query.joins).map((join) => {
       return this.wrapTable(join.table)
-    }).join(', ')
+    }).implode(', ')
 
     const where = query.wheres.length > 0 ? ' ' + this._compileUpdateWheres(query) : ''
 
@@ -218,7 +218,7 @@ module.exports = class PostgresGrammar extends Grammar {
     // everything has been built and then we will join it to the real wheres.
     for (let join of query.joins) {
       for (let where of join.wheres) {
-        const method = `where${where.type}`
+        const method = `_where${where.type}`
 
         joinWheres.push(where.boolean + ' ' + this[method](query, where))
       }

@@ -119,6 +119,17 @@ module.exports = class Connection {
   }
 
   /**
+   * Run a delete statement against the database.
+   *
+   * @param  {string}  query
+   * @param  {array}   bindings
+   * @return {Promise<number>}
+   */
+  delete (query, bindings = []) {
+    return this.affectingStatement(query, bindings)
+  }
+
+  /**
    * Get the current Database connection.
    *
    * @return {\Connection}
@@ -244,7 +255,8 @@ module.exports = class Connection {
    * @return {Promise}
    */
   select (query, bindings = []) {
-    // This method is overrided in the databases connection classes
+    // This method is overrided in the databases connection classes. This empty
+    // method exists to pass the test while mocking this class.
   }
 
   /**
@@ -271,6 +283,18 @@ module.exports = class Connection {
     this._reconnector = reconnector
 
     return this
+  }
+
+  /**
+   * Execute an SQL statement and return the boolean result.
+   *
+   * @param  {string}  query
+   * @param  {array}   bindings
+   * @return {Promise<boolean>}
+   */
+  statement () {
+    // This method is overrided in the databases connection classes. This empty
+    // method exists to pass the test while mocking this class.
   }
 
   /**
