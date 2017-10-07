@@ -273,7 +273,7 @@ module.exports = class PostgresGrammar extends Grammar {
    */
   _wrapJsonPathAttributes (path) {
     return path.map((attribute) => {
-      return `'attribute'`
+      return `'${attribute}'`
     })
   }
 
@@ -284,19 +284,19 @@ module.exports = class PostgresGrammar extends Grammar {
    * @return {string}
    */
   _wrapJsonSelector (value) {
-    const path = value.split('.')
+    const path = value.split('->')
 
-    const field = this.wrapValue(path.shift())
+    const field = this._wrapValue(path.shift())
 
-    const wrappedPath = this.wrapJsonPathAttributes(path)
+    const wrappedPath = this._wrapJsonPathAttributes(path)
 
     const attribute = wrappedPath.pop()
 
     if (!Helper.empty(wrappedPath)) {
-      return field + '.' + wrappedPath.join('.') + '.' + attribute
+      return field + '->' + wrappedPath.join('->') + '->>' + attribute
     }
 
-    return field + '.' + attribute
+    return field + '->>' + attribute
   }
 
   /**
@@ -313,8 +313,8 @@ module.exports = class PostgresGrammar extends Grammar {
     // If the given value is a JSON selector we will wrap it differently than a
     // traditional value. We will need to split this path and wrap each part
     // wrapped, etc. Otherwise, we will simply wrap the value as a string.
-    if (value.includes('.')) {
-      return this.wrapJsonSelector(value)
+    if (value.includes('->')) {
+      return this._wrapJsonSelector(value)
     }
 
     return '"' + value.replace(/"/gi, '""') + '"'

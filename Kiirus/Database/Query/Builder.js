@@ -1,11 +1,12 @@
 'use strict'
 
-const Arr = require('./../../Support/Arr')
 // const Collection = require('./../../Support/Collection')
+const Arr = require('./../../Support/Arr')
 const Expression = require('./Expression')
 const Helper = require('./../../Support/Helper')
 const JoinClause = require('./JoinClause')
 const KiirusBuilder = require('./../Ceres/Builder')
+const Str = require('./../../Support/Str')
 
 module.exports = class Builder {
   /**
@@ -93,6 +94,13 @@ module.exports = class Builder {
      * @var {number}
      */
     this.limitProperty = undefined
+
+    /**
+     * Indicates whether row locking is being used.
+     *
+     * @var {string|boolean}
+     */
+    this.lockProperty = undefined
 
     /**
      * All of the available clause operators.
@@ -382,6 +390,44 @@ module.exports = class Builder {
    */
   distinct () {
     this.distinctProperty = true
+
+    return this
+  }
+
+  /**
+   * Handles dynamic "where" clauses to the query.
+   *
+   * @param  {string}  method
+   * @param  {string}  parameters
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  dynamicWhere (method, parameters) {
+    const finder = method.substr(5)
+
+    const segments = finder.split(/(And|Or)(?=[A-Z])/)
+
+    // The connector variable will determine which connector will be used for the
+    // query condition. We will change it as we come across new boolean values
+    // in the dynamic method strings, which could contain a number of these.
+    let connector = 'and'
+
+    let index = 0
+
+    for (const segment of segments) {
+      // If the segment is not a boolean connector, we can assume it is a column's name
+      // and we will add it to the query as a new constraint as a where clause, then
+      // we can keep iterating through the dynamic method string's segments again.
+      if (segment !== 'And' && segment !== 'Or') {
+        this._addDynamic(segment, connector, parameters, index)
+
+        index++
+      } else {
+        // Otherwise, we will store the connector so we know how the next where clause we
+        // find in the query should be connected to the previous ones, meaning we will
+        // have the proper boolean connector to connect the next where clause found.
+        connector = segment
+      }
+    }
 
     return this
   }
@@ -791,6 +837,33 @@ module.exports = class Builder {
   }
 
   /**
+   * Lock the selected rows in the table.
+   *
+   * @param  {string|bool}  value
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  lock (value = true) {
+    this.lockProperty = value
+
+    return this
+  }
+
+  /**
+   * Merge an array of where clauses and bindings.
+   *
+   * @param  {array}  wheres
+   * @param  {array|object}  bindings
+   * @return void
+   */
+  mergeWheres (wheres, bindings) {
+    this.wheres = Helper.merge(this.wheres, wheres)
+
+    this.bindings.where = Object.values(
+      Helper.merge(this.bindings.where, bindings)
+    )
+  }
+
+  /**
    * Retrieve the minimum value of a given column.
    *
    * @param  {string}  column
@@ -869,7 +942,7 @@ module.exports = class Builder {
   orderByRaw (sql, bindings = []) {
     const type = 'Raw'
 
-    this[this.unions ? 'unionOrders' : 'orders'].push({type, sql})
+    this[this.unions.length > 0 ? 'unionOrders' : 'orders'].push({type, sql})
 
     this.addBinding(bindings, 'order')
 
@@ -1312,17 +1385,17 @@ module.exports = class Builder {
       return this._whereSub(column, operator, value, booleanOperator)
     }
 
-    // If the value is "undefined", we will just assume the developer wants to
+    // If the value is "null", we will just assume the developer wants to
     // add a where null clause to the query. So, we will allow a short-cut here
     // to that method for convenience so the developer doesn't have to check.
-    if (value === undefined) {
+    if (value === null) {
       return this.whereNull(column, booleanOperator, operator !== '=')
     }
 
     // If the column is making a JSON reference we'll check to see if the value
     // is a boolean. If it is, we'll add the raw boolean string as an actual
     // value to the query to ensure this is properly handled by the query.
-    if (column.includes('.') && typeof value === 'boolean') {
+    if (column.includes('->') && typeof value === 'boolean') {
       value = new Expression(value ? 'true' : 'false')
     }
 
@@ -1713,6 +1786,24 @@ module.exports = class Builder {
     this.addBinding(value, 'where')
 
     return this
+  }
+
+  /**
+   * Add a single dynamic where clause statement to the query.
+   *
+   * @param  {string}  segment
+   * @param  {string}  connector
+   * @param  {array}   parameters
+   * @param  {number}  index
+   * @return {void}
+   */
+  _addDynamic (segment, connector, parameters, index) {
+    // Once we have parsed out the columns and formatted the boolean operators we
+    // are ready to add it to this query as a where clause just like any other
+    // clause on the query. Then we'll increment the parameter index values.
+    const bool = connector.toLowerCase()
+
+    this.where(Str.snake(segment), '=', parameters[index], bool)
   }
 
   /**

@@ -287,12 +287,12 @@ module.exports = class SqlServerGrammar extends Grammar {
   _compileFrom (query, table) {
     let from = super._compileFrom(query, table)
 
-    if (Helper.isString(query.lock)) {
-      return from + ' ' + query.lock
+    if (Helper.isString(query.lockProperty)) {
+      return from + ' ' + query.lockProperty
     }
 
-    if (query.lock !== undefined) {
-      return from + ' with(rowlock,' + (query.lock ? 'updlock,' : '') + 'holdlock)'
+    if (query.lockProperty !== undefined) {
+      return from + ' with(rowlock,' + (query.lockProperty ? 'updlock,' : '') + 'holdlock)'
     }
 
     return from
@@ -348,7 +348,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   _compileRowConstraint (query) {
-    const start = query.offset + 1
+    const start = query.offsetProperty + 1
 
     if (query.limitProperty > 0) {
       const finish = query.offsetProperty + query.limitProperty

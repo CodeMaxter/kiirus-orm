@@ -11,4 +11,14 @@ describe('Str', function () {
       expect(Str.ucfirst('HELLO WORLD!')).to.be.equal('HELLO WORLD!')
     })
   })
+
+  describe('Snake', function () {
+    it('#snake', function () {
+      expect(Str.snake('LaravelPHPFramework')).to.equal('laravel_p_h_p_framework')
+      expect(Str.snake('LaravelPhpFramework')).to.equal('laravel_php_framework')
+      expect(Str.snake('LaravelPhpFramework', ' ')).to.equal('laravel php framework')
+      expect(Str.snake('Laravel Php Framework')).to.equal('laravel_php_framework')
+      expect(Str.snake('Laravel    Php      Framework   ')).to.equal('laravel_php_framework')
+    })
+  })
 })

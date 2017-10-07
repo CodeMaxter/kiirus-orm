@@ -106,7 +106,7 @@ module.exports = class Grammar extends BaseGrammar {
       // To compile the query, we'll spin through each component of the query and
       // see if that component exists. If it does we'll just call the compiler
       // function for the component which is responsible for making the SQL.
-      if (query[component.translated] === 0 || !Helper.empty(query[component.translated])) {
+      if (this._existsComponent(query[component.translated])) {
         const method = '_compile' + Str.ucfirst(component.name)
 
         sql[component.name] = this[method](query, query[component.translated])
@@ -356,6 +356,33 @@ module.exports = class Grammar extends BaseGrammar {
     const value = this.parameter(where.values)
 
     return type + '(' + this.wrap(where.column) + ') ' + where.operator + ' ' + value
+  }
+
+  /**
+   * Verify if a component exists in the Query Builder
+   *
+   * @param {*} component
+   * @return {boolean}
+   */
+  _existsComponent (component) {
+    const validTypes = ['boolean', 'object', 'string', 'number']
+
+    if (Array.isArray(component)) {
+      if (component.length > 0) {
+        return true
+      }
+
+      return false
+    }
+
+    if (component !== undefined &&
+      component !== null &&
+      validTypes.includes(typeof component)
+    ) {
+      return true
+    }
+
+    return false
   }
 
   /**

@@ -19,6 +19,29 @@ describe('QueryBuilder', () => {
     autoVerify()
   })
 
+  describe('#lock', () => {
+    it('MySql Lock', () => {
+      let builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock()
+      expect(builder.toSql()).to.be.equal('select * from `foo` where `bar` = ? for update')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock(false)
+      expect(builder.toSql()).to.be.equal('select * from `foo` where `bar` = ? lock in share mode')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock('lock in share mode')
+      expect(builder.toSql()).to.be.equal('select * from `foo` where `bar` = ? lock in share mode')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
+    })
+
+    it('', () => {
+
+    })
+  })
+
   describe('#select', () => {
     it('Basic Select', () => {
       const builder = builderStub.getBuilder()
@@ -612,15 +635,15 @@ describe('QueryBuilder', () => {
       builder.select('*').from('users').whereIn('id', (q) => {
         q.select('id').from('users').where('age', '>', 25).take(3)
       })
-      expect('select * from "users" where "id" in (select "id" from "users" where "age" > ? limit 3)').to.be.equal(builder.toSql())
-      expect([25]).to.be.deep.equal(builder.getBindings())
+      expect(builder.toSql()).to.be.equal('select * from "users" where "id" in (select "id" from "users" where "age" > ? limit 3)')
+      expect(builder.getBindings()).to.be.deep.equal([25])
 
       builder = builderStub.getBuilder()
       builder.select('*').from('users').whereNotIn('id', (q) => {
         q.select('id').from('users').where('age', '>', 25).take(3)
       })
-      expect('select * from "users" where "id" not in (select "id" from "users" where "age" > ? limit 3)').to.be.equal(builder.toSql())
-      expect([25]).to.be.deep.equal(builder.getBindings())
+      expect(builder.toSql()).to.be.equal('select * from "users" where "id" not in (select "id" from "users" where "age" > ? limit 3)')
+      expect(builder.getBindings()).to.be.deep.equal([25])
     })
 
     it('Basic Where Nulls', () => {
@@ -668,22 +691,22 @@ describe('QueryBuilder', () => {
     it('Order Bys', () => {
       let builder = builderStub.getBuilder()
       builder.select('*').from('users').orderBy('email').orderBy('age', 'desc')
-      expect('select * from "users" order by "email" asc, "age" desc').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users" order by "email" asc, "age" desc')
 
       builder.orders = null
-      expect('select * from "users"').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users"')
 
       builder.orders = []
-      expect('select * from "users"').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users"')
 
       builder = builderStub.getBuilder()
       builder.select('*').from('users').orderBy('email').orderByRaw('"age" ? desc', ['foo'])
-      expect('select * from "users" order by "email" asc, "age" ? desc', builder.toSql())
-      expect(['foo']).to.be.deep.equal(builder.getBindings())
+      expect(builder.toSql()).to.be.equal('select * from "users" order by "email" asc, "age" ? desc')
+      expect(builder.getBindings()).to.be.deep.equal(['foo'])
 
       builder = builderStub.getBuilder()
       builder.select('*').from('users').orderByDesc('name')
-      expect('select * from "users" order by "name" desc').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users" order by "name" desc')
     })
 
     it('Havings', () => {
@@ -775,19 +798,19 @@ describe('QueryBuilder', () => {
     it('Limits And Offsets', () => {
       let builder = builderStub.getBuilder()
       builder.select('*').from('users').offset(5).limit(10)
-      expect('select * from "users" limit 10 offset 5').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users" limit 10 offset 5')
 
       builder = builderStub.getBuilder()
       builder.select('*').from('users').skip(5).take(10)
-      expect('select * from "users" limit 10 offset 5').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users" limit 10 offset 5')
 
       builder = builderStub.getBuilder()
       builder.select('*').from('users').skip(0).take(0)
-      expect('select * from "users" limit 0 offset 0').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users" limit 0 offset 0')
 
       builder = builderStub.getBuilder()
       builder.select('*').from('users').skip(-5).take(-10)
-      expect('select * from "users" offset 0').to.be.equal(builder.toSql())
+      expect(builder.toSql()).to.be.equal('select * from "users" offset 0')
     })
 
     it('For Page', () => {
@@ -830,8 +853,8 @@ describe('QueryBuilder', () => {
       processorMock.expects('processSelect').once().returns(results)
 
       builder.getCountForPagination().then((count) => {
-        expect(1).to.be.equal(count)
-        expect([4]).to.be.deep.equal(builder.getBindings())
+        expect(count).to.be.equal(1)
+        expect(builder.getBindings()).to.be.deep.equal([4])
       })
     })
 
@@ -1371,6 +1394,147 @@ describe('QueryBuilder', () => {
       }).orWhere('id', '=', 'foo').groupBy('id').having('id', '=', 5)
       expect(builder.getBindings()).to.be.deep.equal(['bar', 4, '%.com', 'foo', 5])
     })
+
+    it('MySql Wrapping Json With String', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('items->sku', '=', 'foo-bar')
+
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."sku"\' = ?')
+      expect(builder.getRawBindings()['where'].length).to.be.equal(1)
+      expect(builder.getRawBindings()['where'][0]).to.be.equal('foo-bar')
+    })
+
+    it('MySql Wrapping Json With Integer', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('items->price', '=', 1)
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."price"\' = ?')
+    })
+
+    it('MySql Wrapping Json With Double', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('items->price', '=', 1.5)
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."price"\' = ?')
+    })
+
+    it('MySql Wrapping Json With Boolean', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('items->available', '=', true)
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."available"\' = true')
+    })
+
+    it('MySql Wrapping Json With Boolean And Integer That Looks Like One', () => {
+      const builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users')
+        .where('items->available', '=', true)
+        .where('items->active', '=', false)
+        .where('items->number_available', '=', 0)
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."available"\' = true and `items`->\'$."active"\' = false and `items`->\'$."number_available"\' = ?')
+    })
+
+    it('MySql Wrapping Json', () => {
+      let builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').whereRaw('items->"$.price" = 1')
+      expect(builder.toSql()).to.be.equal('select * from `users` where items->"$.price" = 1')
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('items->price').from('users').where('items->price', '=', 1).orderBy('items->price')
+      expect(builder.toSql()).to.be.equal('select `items`->\'$."price"\' from `users` where `items`->\'$."price"\' = ? order by `items`->\'$."price"\' asc')
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('items->price->in_usd', '=', 1)
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."price"."in_usd"\' = ?')
+
+      builder = builderStub.getMySqlBuilder()
+      builder.select('*').from('users').where('items->price->in_usd', '=', 1).where('items->age', '=', 2)
+      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."price"."in_usd"\' = ? and `items`->\'$."age"\' = ?')
+    })
+
+    it('Postgres Wrapping Json', () => {
+      let builder = builderStub.getPostgresBuilder()
+      builder.select('items->price').from('users')
+        .where('items->price', '=', 1).orderBy('items->price')
+      expect(builder.toSql()).to.be.equal('select "items"->>\'price\' from "users" where "items"->>\'price\' = ? order by "items"->>\'price\' asc')
+
+      builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('users').where('items->price->in_usd', '=', 1)
+      expect(builder.toSql()).to.be.equal('select * from "users" where "items"->\'price\'->>\'in_usd\' = ?')
+
+      builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('users')
+        .where('items->price->in_usd', '=', 1)
+        .where('items->age', '=', 2)
+      expect(builder.toSql()).to.be.equal('select * from "users" where "items"->\'price\'->>\'in_usd\' = ? and "items"->>\'age\' = ?')
+    })
+
+    it('SqlServer Limits And Offsets', () => {
+      let builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').take(10)
+      expect(builder.toSql()).to.be.equal('select top 10 * from [users]')
+
+      builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').skip(10)
+      expect(builder.toSql()).to.be.equal('select * from (select *, row_number() over (order by (select 0)) as row_num from [users]) as temp_table where row_num >= 11')
+
+      builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').skip(10).take(10)
+      expect(builder.toSql()).to.be.equal('select * from (select *, row_number() over (order by (select 0)) as row_num from [users]) as temp_table where row_num between 11 and 20')
+
+      builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').skip(10).take(10).orderBy('email', 'desc')
+      expect(builder.toSql()).to.be.equal('select * from (select *, row_number() over (order by [email] desc) as row_num from [users]) as temp_table where row_num between 11 and 20')
+    })
+
+    it('Merge Wheres Can Merge Wheres And Bindings', () => {
+      const builder = builderStub.getBuilder()
+      builder.wheres = ['foo']
+      builder.mergeWheres(['wheres'], {12: 'foo', 13: 'bar'})
+
+      expect(builder.wheres).to.be.deep.equal(['foo', 'wheres'])
+      expect(builder.getBindings()).to.be.deep.equal(['foo', 'bar'])
+    })
+
+    it('Providing Null With Operators Builds Correctly', () => {
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('foo', null)
+      expect(builder.toSql()).to.be.equal('select * from "users" where "foo" is null')
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('foo', '=', null)
+      expect(builder.toSql()).to.be.equal('select * from "users" where "foo" is null')
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('foo', '!=', null)
+      expect(builder.toSql()).to.be.equal('select * from "users" where "foo" is not null')
+
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('foo', '<>', null)
+      expect(builder.toSql()).to.be.equal('select * from "users" where "foo" is not null')
+    })
+
+    it('Dynamic Where', () => {
+      const builder = builderStub.getBuilder()
+      const builderMock = createMock(builder)
+      const method = 'whereFooBarAndBazOrQux'
+      const parameters = ['corge', 'waldo', 'fred']
+
+      builderMock.expects('where').withArgs('foo_bar', '=', parameters[0], 'and').once().returns(builder)
+      builderMock.expects('where').withArgs('baz', '=', parameters[1], 'and').once().returns(builder)
+      builderMock.expects('where').withArgs('qux', '=', parameters[2], 'or').once().returns(builder)
+
+      expect(builder.dynamicWhere(method, parameters)).to.be.deep.equal(builder)
+    })
+
+    it('Dynamic Where I sNot Greedy', () => {
+      const builder = builderStub.getBuilder()
+      const builderMock = createMock(builder)
+      const method = 'whereIosVersionAndAndroidVersionOrOrientation'
+      const parameters = ['6.1', '4.2', 'Vertical']
+
+      builderMock.expects('where').withArgs('ios_version', '=', '6.1', 'and').once().returns(builder)
+      builderMock.expects('where').withArgs('android_version', '=', '4.2', 'and').once().returns(builder)
+      builderMock.expects('where').withArgs('orientation', '=', 'Vertical', 'or').once().returns(builder)
+      builder.dynamicWhere(method, parameters)
+    })
   })
 
   describe('#insert', () => {
@@ -1434,6 +1598,14 @@ describe('QueryBuilder', () => {
         .insert([{'email': new Raw("UPPER('Foo')")}, {'email': new Raw("LOWER('Foo')")}]).then((result) => {
           expect(result).to.be.equal(true)
         })
+    })
+  })
+
+  describe('#orderBy', () => {
+    it('SQLite Order By', () => {
+      const builder = builderStub.getSQLiteBuilder()
+      builder.select('*').from('users').orderBy('email', 'desc')
+      expect(builder.toSql()).to.be.equal('select * from "users" order by "email" desc')
     })
   })
 
@@ -1819,19 +1991,6 @@ describe('QueryBuilder', () => {
       builder.from('users')
         .where('id', '=', 0)
         .update({'options->size': 45, 'updated_at': '2015-05-26 22:02:06'})
-    })
-
-    it('MySql Wrapping Json With String', () => {
-      const builder = builderStub.getMySqlBuilder()
-      builder.select('*').from('users').where('items->sku', '=', 'foo-bar')
-
-      expect(builder.toSql()).to.be.equal('select * from `users` where `items`->\'$."sku"\' = ?')
-      expect(builder.getRawBindings()['where'].length).to.be.equal(1)
-      expect(builder.getRawBindings()['where'][0]).to.be.equal('foo-bar')
-    })
-
-    it('', () => {
-
     })
   })
 })
