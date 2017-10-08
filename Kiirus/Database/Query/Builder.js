@@ -849,6 +849,18 @@ module.exports = class Builder {
   }
 
   /**
+   * Merge an array of bindings into our bindings.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  mergeBindings (query) {
+    this.bindings = Helper.mergeRecursive(this.bindings, query.bindings)
+
+    return this
+  }
+
+  /**
    * Merge an array of where clauses and bindings.
    *
    * @param  {array}  wheres

@@ -420,7 +420,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   _wrapTableValuedFunction (table) {
-    const matches = table.match(/^(.+?)(\(.*?\))]/gi)
+    const matches = table.match(/^(.+?)(\(.*?\))]$/)
 
     if (matches !== null) {
       table = matches[1] + ']' + matches[2]

@@ -37,8 +37,38 @@ describe('QueryBuilder', () => {
       expect(builder.getBindings()).to.be.deep.equal(['baz'])
     })
 
-    it('', () => {
+    it('Postgres Lock', () => {
+      let builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock()
+      expect(builder.toSql()).to.be.equal('select * from "foo" where "bar" = ? for update')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
 
+      builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock(false)
+      expect(builder.toSql()).to.be.equal('select * from "foo" where "bar" = ? for share')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
+
+      builder = builderStub.getPostgresBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock('for key share')
+      expect(builder.toSql()).to.be.equal('select * from "foo" where "bar" = ? for key share')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
+    })
+
+    it('SqlServer Lock', () => {
+      let builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock()
+      expect(builder.toSql()).to.be.equal('select * from [foo] with(rowlock,updlock,holdlock) where [bar] = ?')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
+
+      builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock(false)
+      expect(builder.toSql()).to.be.equal('select * from [foo] with(rowlock,holdlock) where [bar] = ?')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
+
+      builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('foo').where('bar', '=', 'baz').lock('with(holdlock)')
+      expect(builder.toSql()).to.be.equal('select * from [foo] with(holdlock) where [bar] = ?')
+      expect(builder.getBindings()).to.be.deep.equal(['baz'])
     })
   })
 
@@ -1534,6 +1564,130 @@ describe('QueryBuilder', () => {
       builderMock.expects('where').withArgs('android_version', '=', '4.2', 'and').once().returns(builder)
       builderMock.expects('where').withArgs('orientation', '=', 'Vertical', 'or').once().returns(builder)
       builder.dynamicWhere(method, parameters)
+    })
+
+    it('Binding Order', () => {
+      const expectedSql = 'select * from "users" inner join "othertable" on "bar" = ? where "registered" = ? group by "city" having "population" > ? order by match ("foo") against(?)'
+      const expectedBindings = ['foo', 1, 3, 'bar']
+
+      let builder = builderStub.getBuilder()
+      builder.select('*').from('users').join('othertable', (join) => {
+        join.where('bar', '=', 'foo')
+      }).where('registered', 1)
+        .groupBy('city')
+        .having('population', '>', 3)
+        .orderByRaw('match ("foo") against(?)', ['bar'])
+      expect(builder.toSql()).to.be.equal(expectedSql)
+      expect(builder.getBindings()).to.be.deep.equal(expectedBindings)
+
+      // order of statements reversed
+      builder = builderStub.getBuilder()
+      builder.select('*').from('users')
+        .orderByRaw('match ("foo") against(?)', ['bar'])
+        .having('population', '>', 3)
+        .groupBy('city')
+        .where('registered', 1).join('othertable', (join) => {
+          join.where('bar', '=', 'foo')
+        })
+      expect(builder.toSql()).to.be.equal(expectedSql)
+      expect(builder.getBindings()).to.be.deep.equal(expectedBindings)
+    })
+
+    it('Add Binding With Array Merges Bindings', () => {
+      const builder = builderStub.getBuilder()
+      builder.addBinding(['foo', 'bar'])
+      builder.addBinding(['baz'])
+      expect(builder.getBindings()).to.be.deep.equal(['foo', 'bar', 'baz'])
+    })
+
+    it('Add Binding With Array Merges Bindings In Correct Order', () => {
+      const builder = builderStub.getBuilder()
+      builder.addBinding(['bar', 'baz'], 'having')
+      builder.addBinding(['foo'], 'where')
+      expect(builder.getBindings()).to.be.deep.equal(['foo', 'bar', 'baz'])
+    })
+
+    it('Merge Builders', () => {
+      const builder = builderStub.getBuilder()
+      builder.addBinding(['foo', 'bar'])
+
+      const otherBuilder = builderStub.getBuilder()
+      otherBuilder.addBinding(['baz'])
+
+      builder.mergeBindings(otherBuilder)
+      expect(builder.getBindings()).to.be.deep.equal(['foo', 'bar', 'baz'])
+    })
+
+    it('Merge Builders Binding Order', () => {
+      const builder = builderStub.getBuilder()
+      builder.addBinding('foo', 'where')
+      builder.addBinding('baz', 'having')
+
+      const otherBuilder = builderStub.getBuilder()
+      otherBuilder.addBinding('bar', 'where')
+      builder.mergeBindings(otherBuilder)
+      expect(['foo', 'bar', 'baz']).to.be.deep.equal(builder.getBindings())
+    })
+
+    it('Sub Select', () => {
+      const expectedSql = 'select "foo", "bar", (select "baz" from "two" where "subkey" = ?) as "sub" from "one" where "key" = ?'
+      const expectedBindings = ['subval', 'val']
+
+      let builder = builderStub.getPostgresBuilder()
+      builder.from('one').select(['foo', 'bar']).where('key', '=', 'val')
+      builder.selectSub(function (query) {
+        query.from('two').select('baz').where('subkey', '=', 'subval')
+      }, 'sub')
+      expect(builder.toSql()).to.be.equal(expectedSql)
+      expect(builder.getBindings()).to.be.deep.equal(expectedBindings)
+
+      builder = builderStub.getPostgresBuilder()
+      builder.from('one').select(['foo', 'bar']).where('key', '=', 'val')
+
+      const subBuilder = builderStub.getPostgresBuilder()
+      subBuilder.from('two').select('baz').where('subkey', '=', 'subval')
+      builder.selectSub(subBuilder, 'sub')
+      expect(builder.toSql()).to.be.equal(expectedSql)
+      expect(builder.getBindings()).to.be.deep.equal(expectedBindings)
+    })
+
+    it('SqlServer Where Date', () => {
+      const builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users').whereDate('created_at', '=', '2015-09-23')
+      expect(builder.toSql()).to.be.equal('select * from [users] where cast([created_at] as date) = ?')
+      expect(builder.getBindings()).to.be.deep.equal(['2015-09-23'])
+    })
+
+    it('Uppercase Leading Booleans Are Removed', () => {
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('name', '=', 'Taylor', 'AND')
+      expect(builder.toSql()).to.be.equal('select * from "users" where "name" = ?')
+    })
+
+    it('Lowercase Leading Booleans Are Removed', () => {
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('name', '=', 'Taylor', 'and')
+      expect(builder.toSql()).to.be.equal('select * from "users" where "name" = ?')
+    })
+
+    it('Case In sensitive Leading Booleans Are Removed', () => {
+      const builder = builderStub.getBuilder()
+      builder.select('*').from('users').where('name', '=', 'Taylor', 'And')
+      expect(builder.toSql()).to.be.equal('select * from "users" where "name" = ?')
+    })
+
+    it('Table Valued Function As Table In SqlServer', () => {
+      let builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users()')
+      expect(builder.toSql()).to.be.equal('select * from [users]()')
+
+      builder = builderStub.getSqlServerBuilder()
+      builder.select('*').from('users(1,2)')
+      expect(builder.toSql()).to.be.equal('select * from [users](1,2)')
+    })
+
+    it('', () => {
+
     })
   })
 
