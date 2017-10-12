@@ -9,13 +9,15 @@ module.exports = class MySqlConnector extends Connector {
   /**
    * Create a new MySql connection.
    *
-   * @param  {object}   options
+   * @param  {object}   config
    * @return {object}
    */
-  createConnection (options) {
-    const connection = mysql.createPool(options)
+  createConnection (config) {
+    // const connection = mysql.createPool(config)
 
-    return connection
+    // return connection
+
+    return mysql.createConnection(config)
   }
 
   /**
@@ -25,12 +27,10 @@ module.exports = class MySqlConnector extends Connector {
    * @return {object}
    */
   connect (config) {
-    const options = this.getOptions(config)
-
     // We need to grab the PDO options that should be used while making the brand
     // new connection instance. The PDO options control various aspects of the
     // connection's behavior, and some might be specified by the developers.
-    const connection = this.createConnection(config, options)
+    const connection = this.createConnection(config)
 
     if (!Helper.empty(config.database)) {
       connection.query(`use \`${config.database}\``)

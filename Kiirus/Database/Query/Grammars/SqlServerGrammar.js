@@ -162,7 +162,7 @@ module.exports = class SqlServerGrammar extends Grammar {
    * @return {string}
    */
   getDateFormat () {
-    return 'Y-m-d H:i:s.000'
+    return 'yyyy-md-ddTHH:nn:ss.000'
   }
 
   /**

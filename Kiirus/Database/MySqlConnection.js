@@ -53,13 +53,17 @@ module.exports = class MySqlConnection extends Connection {
       return
     }
 
-    this._connection.end((error) => {
-      if (error) {
-        throw Error(error)
-      }
+    this._connection.end()
 
-      this.setConnection(undefined)
-    })
+    this.setConnection(undefined)
+
+    // this._connection.end((error) => {
+    //   if (error) {
+    //     throw Error(error)
+    //   }
+
+    //   this.setConnection(undefined)
+    // })
   }
 
   /**

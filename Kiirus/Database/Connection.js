@@ -1,8 +1,12 @@
 'use strict'
 
+const Arr = require('./../Support/Arr')
 const DateTime = require('./../Support/DateTime')
+const Expression = require('./Query/Expression')
 const Processor = require('./Query/Processors/Processor')
+const QueryBuilder = require('./Query/Builder')
 const QueryGrammar = require('./Query/Grammars/Grammar')
+const SchemaBuilder = require('./Schema/SchemaBuilder')
 
 module.exports = class Connection {
   /**
@@ -130,12 +134,67 @@ module.exports = class Connection {
   }
 
   /**
+   * Disable the query log on the connection.
+   *
+   * @return {void}
+   */
+  disableQueryLog () {
+    this._loggingQueries = false
+  }
+
+  /**
+   * Enable the query log on the connection.
+   *
+   * @return {void}
+   */
+  enableQueryLog () {
+    this._loggingQueries = true
+  }
+
+  /**
+   * Clear the query log.
+   *
+   * @return {void}
+   */
+  flushQueryLog () {
+    this._queryLog = []
+  }
+
+  /**
+   * Get an option from the configuration options.
+   *
+   * @param  {string|undefined}  option
+   * @return {*}
+   */
+  getConfig (option = undefined) {
+    return Arr.get(this.config, option)
+  }
+
+  /**
    * Get the current Database connection.
    *
    * @return {\Connection}
    */
   getConnection () {
     return this._connection
+  }
+
+  /**
+   * Get the name of the connected database.
+   *
+   * @return {string}
+   */
+  getDatabaseName () {
+    return this._database
+  }
+
+  /**
+   * Get the PDO driver name.
+   *
+   * @return {string}
+   */
+  getDriverName () {
+    return this.getConfig('driver')
   }
 
   /**
@@ -157,14 +216,54 @@ module.exports = class Connection {
   }
 
   /**
+   * Get a schema builder instance for the connection.
+   *
+   * @return {\Kiirus\Database\Schema\Builder}
+   */
+  getSchemaBuilder () {
+    if (this.schemaGrammar === undefined) {
+      this.useDefaultSchemaGrammar()
+    }
+
+    return new SchemaBuilder(this)
+  }
+
+  /**
+   * Get the schema grammar used by the connection.
+   *
+   * @return {\Kiirus\Database\Schema\Grammars\Grammar}
+   */
+  getSchemaGrammar () {
+    return this._schemaGrammar
+  }
+
+  /**
+   * Get the table prefix for the connection.
+   *
+   * @return {string}
+   */
+  getTablePrefix () {
+    return this._tablePrefix
+  }
+
+  /**
    * Run an insert statement against the database.
    *
    * @param  {string}  query
    * @param  {array}   bindings
-   * @return {boolean}
+   * @return {Promise<boolean>}
    */
   insert (query, bindings = []) {
     return this.statement(query, bindings)
+  }
+
+  /**
+   * Determine whether we're logging queries.
+   *
+   * @return {boolean}
+   */
+  logging () {
+    return this._loggingQueries
   }
 
   /**
@@ -212,12 +311,54 @@ module.exports = class Connection {
   }
 
   /**
+   * Execute the given callback in "dry run" mode.
+   *
+   * @param  {function}  callback
+   * @return {Promise<array>}
+   */
+  pretend (callback) {
+    return this._withFreshQueryLog(() => {
+      this.pretending = true
+
+      // Basically to make the database connection "pretend", we will just return
+      // the default values for all the query methods, then we will return an
+      // array of queries that were "executed" within the Closure callback.
+      callback(this)
+
+      this.pretending = false
+
+      return this._queryLog
+    })
+  }
+
+  /**
    * Determine if the connection in a "dry run".
    *
    * @return {boolean}
    */
   pretending () {
     return this._pretending === true
+  }
+
+  /**
+   * Get a new query builder instance.
+   *
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  query () {
+    return new QueryBuilder(
+      this, this.getQueryGrammar(), this.getPostProcessor()
+    )
+  }
+
+  /**
+   * Get a new raw query expression.
+   *
+   * @param  {*}  value
+   * @return {\Kiirus\Database\Query\Expression}
+   */
+  raw (value) {
+    return new Expression(value)
   }
 
   /**
@@ -260,6 +401,20 @@ module.exports = class Connection {
   }
 
   /**
+   * Run a select statement and return a single result.
+   *
+   * @param  {string}  query
+   * @param  {array}   bindings
+   * @param  {boolean} useReadPdo
+   * @return {Promise<*>}
+   */
+  selectOne (query, bindings = []) {
+    this.select(query, bindings).then((records) => {
+      return records.shift()
+    })
+  }
+
+  /**
    * Set database connection.
    *
    * @param  {object|undefined}  connection
@@ -271,6 +426,36 @@ module.exports = class Connection {
     this._connection = connection
 
     return this
+  }
+
+  /**
+   * Set the name of the connected database.
+   *
+   * @param  {string}  database
+   * @return {string}
+   */
+  setDatabaseName (database) {
+    this._database = database
+  }
+
+  /**
+   * Set the query post processor used by the connection.
+   *
+   * @param  {\Kiirus\Database\Query\Processors\Processor}  processor
+   * @return {void}
+   */
+  setPostProcessor (processor) {
+    this._postProcessor = processor
+  }
+
+  /**
+   * Set the query grammar used by the connection.
+   *
+   * @param  {\Kiirus\Database\Query\Grammars\Grammar}  grammar
+   * @return {void}
+   */
+  setQueryGrammar (grammar) {
+    this._queryGrammar = grammar
   }
 
   /**
@@ -286,6 +471,28 @@ module.exports = class Connection {
   }
 
   /**
+   * Set the schema grammar used by the connection.
+   *
+   * @param  {\Kiirus\Database\Schema\Grammars\Grammar}  grammar
+   * @return {void}
+   */
+  setSchemaGrammar (grammar) {
+    this._schemaGrammar = grammar
+  }
+
+  /**
+   * Set the table prefix in use by the connection.
+   *
+   * @param  {string}  prefix
+   * @return {void}
+   */
+  setTablePrefix (prefix) {
+    this._tablePrefix = prefix
+
+    this.getQueryGrammar().setTablePrefix(prefix)
+  }
+
+  /**
    * Execute an SQL statement and return the boolean result.
    *
    * @param  {string}  query
@@ -295,6 +502,16 @@ module.exports = class Connection {
   statement () {
     // This method is overrided in the databases connection classes. This empty
     // method exists to pass the test while mocking this class.
+  }
+
+  /**
+   * Begin a fluent query against a database table.
+   *
+   * @param  {string}  table
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  table (table) {
+    return this.query().from(table)
   }
 
   /**
@@ -348,12 +565,24 @@ module.exports = class Connection {
   }
 
   /**
-   * Get the default query grammar instance.
+   * Determine if the given exception was caused by a lost connection.
    *
-   * @return {\Kiirus\Database\Query\Grammars\Grammar}
+   * @param  {Exception}  e
+   * @return {boolean}
    */
-  _getDefaultQueryGrammar () {
-    return new QueryGrammar()
+  _causedByLostConnection (e) {
+    return [
+      'server has gone away',
+      'no connection to the server',
+      'Lost connection',
+      'is dead or not enabled',
+      'Error while sending',
+      'decryption failed or bad record mac',
+      'server closed the connection unexpectedly',
+      'SSL connection has been closed unexpectedly',
+      'Deadlock found when trying to get lock',
+      'Error writing data to the connection'
+    ].includes(e.message)
   }
 
   /**
@@ -363,6 +592,24 @@ module.exports = class Connection {
    */
   _getDefaultPostProcessor () {
     return new Processor()
+  }
+
+  /**
+   * Get the default query grammar instance.
+   *
+   * @return {\Kiirus\Database\Query\Grammars\Grammar}
+   */
+  _getDefaultQueryGrammar () {
+    return new QueryGrammar()
+  }
+
+  /**
+   * Get the default schema grammar instance.
+   *
+   * @return {\Kiirus\Database\Schema\Grammars\Grammar}
+   */
+  _getDefaultSchemaGrammar () {
+      //
   }
 
   /**
@@ -467,5 +714,52 @@ module.exports = class Connection {
       // lot more helpful to the developer instead of just the database's errors.
       throw new Error(query, this.prepareBindings(bindings), e)
     }
+  }
+
+  /**
+   * Handle a query exception that occurred during query execution.
+   *
+   * @param  {\Kiirus\Database\QueryException}  e
+   * @param  {string}    query
+   * @param  {array}     bindings
+   * @param  {function}  callback
+   * @return {*}
+   *
+   * @throws {\Kiirus\Database\QueryException}
+   */
+  _tryAgainIfCausedByLostConnection (e, query, bindings, callback) {
+    if (this._causedByLostConnection(e.getPrevious())) {
+      this.reconnect()
+
+      return this._runQueryCallback(query, bindings, callback)
+    }
+
+    throw e
+  }
+
+  /**
+   * Execute the given callback in "dry run" mode.
+   *
+   * @param  {function}  callback
+   * @return {array}
+   */
+  _withFreshQueryLog (callback) {
+    const loggingQueries = this._loggingQueries
+
+    // First we will back up the value of the logging queries property and then
+    // we'll be ready to run callbacks. This query log will also get cleared
+    // so we will have a new log of all the queries that are executed now.
+    this.enableQueryLog()
+
+    this._queryLog = []
+
+    // Now we'll execute this callback and capture the result. Once it has been
+    // executed we will restore the value of query logging and give back the
+    // value of hte callback so the original callers can have the results.
+    const result = callback()
+
+    this._loggingQueries = loggingQueries
+
+    return result
   }
 }

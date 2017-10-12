@@ -70,11 +70,9 @@ module.exports = class PostgresGrammar extends Grammar {
    * @return {array}
    */
   compileTruncate (query) {
-    const sql = {}
-
-    sql['truncate ' + this.wrapTable(query.table) + ' restart identity'] = []
-
-    return sql
+    return {
+      ['truncate ' + this.wrapTable(query.table) + ' restart identity']: []
+    }
   }
 
   /**

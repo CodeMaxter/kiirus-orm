@@ -2,6 +2,16 @@
 
 module.exports = class Processor {
   /**
+   * Process the results of a column listing query.
+   *
+   * @param  {array}  results
+   * @return {array}
+   */
+  processColumnListing (results) {
+    return results
+  }
+
+  /**
    * Process an  "insert get ID" query.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query

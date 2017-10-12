@@ -1,11 +1,9 @@
 'use strict'
 
-const config = require('./config/database')
+const config = require('./../config/database')
 
-const Kiirus = require('./../Kiirus')
-const Raw = require('./../Kiirus').Expression
-
-let builder
+const Kiirus = require('./../../Kiirus')
+const Raw = require('./../../Kiirus').Expression
 
 // Get Generated SQL
 // builder = Kiirus.createBuilder(config)
@@ -13,7 +11,7 @@ let builder
 // console.log(builder.toSql()) // this line hang out the other builder instances
 
 // Retrieving All Rows From A Table
-builder = Kiirus.createBuilder(config)
+let builder = Kiirus.createBuilder(config)
 builder.from('users').get().then((users) => {
   for (const user of users.all()) {
     console.log(`${user.name} ${user.lastname}`)

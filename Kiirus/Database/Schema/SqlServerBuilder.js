@@ -2,6 +2,6 @@
 
 const Builder = require('./Builder')
 
-module.exports = class MySqlBuilder extends Builder {
+module.exports = class SqlServerBuilder extends Builder {
 
 }

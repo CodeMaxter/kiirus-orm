@@ -696,7 +696,7 @@ module.exports = class Builder {
    * Insert a new record into the database.
    *
    * @param  {array}  values
-   * @return {boolean}
+   * @return {Promise<boolean>}
    */
   insert (values) {
     // Since every insert gets treated like a batch insert, we will make sure the
@@ -725,7 +725,11 @@ module.exports = class Builder {
     return this.connection.insert(
       this.grammar.compileInsert(this, values),
       this._cleanBindings(Arr.flatten(values, 1))
-    )
+    ).then((result) => {
+      return true
+    }).catch((reason) => {
+      return false
+    })
   }
 
   /**
@@ -733,7 +737,7 @@ module.exports = class Builder {
    *
    * @param  {array}   values
    * @param  {string|undefined}  sequence
-   * @return {Promise<Number>}
+   * @return {Promise<number>}
    */
   insertGetId (values, sequence = undefined) {
     const sql = this.grammar.compileInsertGetId(this, values, sequence)
@@ -741,6 +745,9 @@ module.exports = class Builder {
     values = this._cleanBindings(values)
 
     return this.processor.processInsertGetId(this, sql, values, sequence)
+      .then((result) => {
+        return result.all().insertId
+      })
   }
 
   /**
