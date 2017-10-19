@@ -1685,10 +1685,6 @@ describe('QueryBuilder', () => {
       builder.select('*').from('users(1,2)')
       expect(builder.toSql()).to.be.equal('select * from [users](1,2)')
     })
-
-    it('', () => {
-
-    })
   })
 
   describe('#insert', () => {
@@ -1715,8 +1711,11 @@ describe('QueryBuilder', () => {
     it('Insert Get Id Method', () => {
       const builder = builderStub.getBuilder()
       const processorMock = createMock(builder.getProcessor())
+      const result = Promise.resolve({all: () => {
+        return {insertId: 1}
+      }})
 
-      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?)', ['foo'], 'id').returns(Promise.resolve(1))
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?)', ['foo'], 'id').returns(result)
       builder.from('users').insertGetId({'email': 'foo'}, 'id').then((result) => {
         expect(result).to.be.equal(1)
       })
@@ -1725,8 +1724,11 @@ describe('QueryBuilder', () => {
     it('Insert Get Id Method Removes Expressions', () => {
       const builder = builderStub.getBuilder()
       const processorMock = createMock(builder.getProcessor())
+      const result = Promise.resolve({all: () => {
+        return {insertId: 1}
+      }})
 
-      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email", "bar") values (?, bar)', ['foo'], 'id').returns(Promise.resolve(1))
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email", "bar") values (?, bar)', ['foo'], 'id').returns(result)
       builder.from('users').insertGetId({'email': 'foo', 'bar': new Raw('bar')}, 'id').then((result) => {
         expect(result).to.be.equal(1)
       })
@@ -1751,6 +1753,20 @@ describe('QueryBuilder', () => {
       builder.from('users')
         .insert([{'email': new Raw("UPPER('Foo')")}, {'email': new Raw("LOWER('Foo')")}]).then((result) => {
           expect(result).to.be.equal(true)
+        })
+    })
+
+    it('Postgres Insert Get Id', () => {
+      const builder = builderStub.getPostgresBuilder()
+      const processorMock = createMock(builder.getProcessor())
+      const result = Promise.resolve({all: () => {
+        return {insertId: 1}
+      }})
+
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?) returning "id"', ['foo'], 'id').returns(result)
+      builder.from('users')
+        .insertGetId({'email': 'foo'}, 'id').then((result) => {
+          expect(result).to.be.equal(1)
         })
     })
   })
@@ -2083,17 +2099,6 @@ describe('QueryBuilder', () => {
         'delete from sqlite_sequence where name = ?': ['users'],
         'delete from "users"': []
       })
-    })
-
-    it('Postgres Insert Get Id', () => {
-      const builder = builderStub.getPostgresBuilder()
-      const processorMock = createMock(builder.getProcessor())
-
-      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?) returning "id"', ['foo'], 'id').returns(Promise.resolve(1))
-      builder.from('users')
-        .insertGetId({'email': 'foo'}, 'id').then((result) => {
-          expect(result).to.be.equal(1)
-        })
     })
 
     it('MySql Wrapping', () => {

@@ -1,7 +1,7 @@
 'use strict'
 
 const Connection = require('./Connection')
-const SQLiteBuilder = require('./Schema/SQLiteBuilder')
+const SqlServerBuilder = require('./Schema/SqlServerBuilder')
 const SqlServerProcessor = require('./Query/Processors/SqlServerProcessor')
 const QueryGrammar = require('./Query/Grammars/SqlServerGrammar')
 const SchemaGrammar = require('./Schema/Grammars/SqlServerGrammar')
@@ -17,34 +17,41 @@ module.exports = class SqlServerConnection extends Connection {
    * @throws {\Error}
    */
   transaction (callback, attempts = 1) {
-    for (a = 1; a <= attempts; ++a) {
+    for (let currentAttempt = 1; currentAttempt <= attempts; ++currentAttempt) {
       if (this.getDriverName() === 'sqlsrv') {
         return super.transaction(callback)
       }
 
-      this.getPdo().exec('BEGIN TRAN')
+      return new Promise((resolve, reject) => {
+        // We'll simply execute the given callback within a try / catch block
+        // and if we catch any exception we can rollback the transaction
+        // so that none of the changes are persisted to the database.
+        let result
 
-      // We'll simply execute the given callback within a try / catch block
-      // and if we catch any exception we can rollback the transaction
-      // so that none of the changes are persisted to the database.
-      try {
-        result = callback(this)
+        try {
+          result = callback(this)
 
-        this.getPdo().exec('COMMIT TRAN')
-      }
+          this._connection.commit((error) => {
+            if (error) {
+              return this._connection.rollback(() => {
+                reject(error)
+              })
+            }
 
-      // If we catch an exception, we will roll back so nothing gets messed
-      // up in the database. Then we'll re-throw the exception so it can
-      // be handled how the developer sees fit for their applications.
-      catch (Exception e) {
-        this.getPdo().exec('ROLLBACK TRAN')
-
-        throw e
-      }
-
-      return result
+            resolve(result)
+          })
+        } catch (e) {
+          // If we catch an exception, we will roll back so nothing gets messed
+          // up in the database. Then we'll re-throw the exception so it can
+          // be handled how the developer sees fit for their applications.
+          return this._connection.rollback(() => {
+            reject(e)
+          })
+        }
+      })
     }
   }
+
   /**
    * Get the default query grammar instance.
    *
@@ -60,7 +67,7 @@ module.exports = class SqlServerConnection extends Connection {
    * @return {\Kiirus\Database\Schema\SqlServerBuilder}
    */
   getSchemaBuilder () {
-    if (is_null(this._schemaGrammar)) {
+    if (this._schemaGrammar === undefined) {
       this.useDefaultSchemaGrammar()
     }
 

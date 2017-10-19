@@ -1,17 +1,18 @@
 'use strict'
 
+const Helper = require('./../../../Support/Helper')
 const Processor = require('./Processor')
 
 module.exports = class SqlServerProcessor extends Processor {
   /**
    * Process the results of a column listing query.
    *
-   * @param  array  results
-   * @return array
+   * @param  {array}  results
+   * @return {array}
    */
   processColumnListing (results) {
-    return resultsmap((result) => {
-        return result.name
+    return results.map((result) => {
+      return result.name
     })
   }
 
@@ -25,9 +26,11 @@ module.exports = class SqlServerProcessor extends Processor {
    * @return {number}
    */
   processInsertGetId (query, sql, values, sequence = undefined) {
-    connection = query.getConnection()
+    const connection = query.getConnection()
 
     connection.insert(sql, values)
+
+    let id
 
     if (connection.getConfig('odbc') === true) {
       id = this.processInsertGetIdForOdbc(connection)
@@ -35,7 +38,7 @@ module.exports = class SqlServerProcessor extends Processor {
       id = connection.getPdo().lastInsertId()
     }
 
-    return is_numeric(id) ? (int) id : id
+    return Helper.isNumeric(id) ? Number(id) : id
   }
 
   /**
@@ -46,16 +49,16 @@ module.exports = class SqlServerProcessor extends Processor {
    * @throws {\Exception}
    */
   _processInsertGetIdForOdbc (connection) {
-    result = connection.selectFromWriteConnection(
+    const result = connection.selectFromWriteConnection(
       'SELECT CAST(COALESCE(SCOPE_IDENTITY(), @@IDENTITY) AS int) AS insertid'
     )
 
     if (!result) {
-      throw new Exception('Unable to retrieve lastInsertID for ODBC.')
+      throw new Error('Unable to retrieve lastInsertID for ODBC.')
     }
 
-    row = result[0]
-    
+    const row = result[0]
+
     return row.insertid
   }
 }

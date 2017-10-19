@@ -1,12 +1,13 @@
 'use strict'
 
 const Arr = require('./../Support/Arr')
+const Helper = require('./../Support/Helper')
 const DateTime = require('./../Support/DateTime')
 const Expression = require('./Query/Expression')
 const Processor = require('./Query/Processors/Processor')
 const QueryBuilder = require('./Query/Builder')
 const QueryGrammar = require('./Query/Grammars/Grammar')
-const SchemaBuilder = require('./Schema/SchemaBuilder')
+const SchemaBuilder = require('./Schema/Builder')
 
 module.exports = class Connection {
   /**
@@ -515,6 +516,57 @@ module.exports = class Connection {
   }
 
   /**
+   * Execute a Closure within a transaction.
+   *
+   * @param  {function}  callback
+   * @param  {number}  attempts
+   * @return {*}
+   *
+   * @throws {Exception|}
+   */
+  transaction (callback, attempts = 1) {
+    return new Promise((resolve, reject) => {
+      for (let currentAttempt = 1; currentAttempt <= attempts; currentAttempt++) {
+        this._reconnectIfMissingConnection()
+
+        this._connection.beginTransaction((error) => {
+          if (error) {
+            reject(error)
+          }
+
+          // We'll simply execute the given callback within a try / catch block and if we
+          // catch any exception we can rollback this transaction so that none of this
+          // gets actually persisted to a database or stored in a permanent fashion.
+          try {
+            resolve(Helper.tap(callback(this), (result) => {
+              this._connection.commit((error) => {
+                if (error) {
+                  return this._connection.rollback(() => {
+                    reject(error)
+                  })
+                }
+              })
+            }))
+          } catch (e) {
+            // If we catch an exception we'll rollback this transaction and try again if we
+            // are not out of attempts. If we are out of attempts we will just throw the
+            // exception back out and let the developer handle an uncaught exceptions.
+            try {
+              this._handleTransactionException(
+                e, currentAttempt, attempts
+              )
+            } catch (e) {
+              this._connection.rollBack(() => {
+                reject(error)
+              })
+            }
+          }
+        })
+      }
+    })
+  }
+
+  /**
    * Run an update statement against the database.
    *
    * @param  {string}  query
@@ -562,6 +614,27 @@ module.exports = class Connection {
     grammar.setTablePrefix(this._tablePrefix)
 
     return grammar
+  }
+
+  /**
+   * Determine if the given exception was caused by a deadlock.
+   *
+   * @param  {Exception}  e
+   * @return {boolean}
+   */
+  _causedByDeadlock (e) {
+    message = e.getMessage()
+
+    return [
+      'Deadlock found when trying to get lock',
+      'deadlock detected',
+      'The database file is locked',
+      'database is locked',
+      'database table is locked',
+      'A table in the database is locked',
+      'has been chosen as the deadlock victim',
+      'Lock wait timeout exceeded; try restarting transaction',
+    ].includes(message)
   }
 
   /**
@@ -642,6 +715,39 @@ module.exports = class Connection {
     return this._tryAgainIfCausedByLostConnection(
       e, query, bindings
     )
+  }
+
+  /**
+   * Handle an exception encountered when running a transacted statement.
+   *
+   * @param  {Exception}  e
+   * @param  {number}  currentAttempt
+   * @param  {number}  maxAttempts
+   * @return {void}
+   *
+   * @throws {Exception}
+   */
+  _handleTransactionException (e, currentAttempt, maxAttempts) {
+    // On a deadlock, MySQL rolls back the entire transaction so we can't just
+    // retry the query. We have to throw this exception all the way out and
+    // let the developer handle it in another way. We will decrement too.
+    if (this._causedByDeadlock(e) && this.transactions > 1) {
+      --this.transactions
+
+      throw e
+    }
+
+    // If there was an exception we will rollback this transaction and then we
+    // can check if we have exceeded the maximum attempt count for this and
+    // if we haven't we will return and try this query again in our loop.
+    this.rollBack()
+
+    if (this._causedByDeadlock(e) && currentAttempt < maxAttempts) {
+
+      return
+    }
+
+    throw e
   }
 
   /**

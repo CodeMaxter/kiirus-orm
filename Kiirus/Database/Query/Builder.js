@@ -1222,6 +1222,19 @@ module.exports = class Builder {
   }
 
   /**
+   * Execute a Closure within a transaction.
+   *
+   * @param  {function}  callback
+   * @param  {number}  attempts
+   * @return {*}
+   *
+   * @throws {Exception|}
+   */
+  transaction (callback) {
+    return this.connection.transaction(callback)
+  }
+
+  /**
    * Run a truncate statement on the table.
    *
    * @return {void}

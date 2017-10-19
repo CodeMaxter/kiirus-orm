@@ -86,11 +86,10 @@ module.exports = class ConnectionFactory {
    */
   _createSingleConnection (config) {
     const connector = this.createConnector(config)
-    const connection = connector.connect(config)
 
     return this._createConnection(
       config.driver,
-      connection,
+      undefined,
       config.database,
       config.prefix,
       config

@@ -23,3 +23,4 @@ builder.from('users').insertGetId({
 }).then((insertId) => {
   console.log(insertId)
 })
+

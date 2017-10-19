@@ -3,7 +3,7 @@
 const config = require('./../config/database')
 
 const Kiirus = require('./../../Kiirus')
-const Raw = require('./../../Kiirus').Expression
+const { Expression: Raw } = require('./../../Kiirus')
 
 // Get Generated SQL
 // builder = Kiirus.createBuilder(config)
@@ -18,7 +18,7 @@ builder.from('users').get().then((users) => {
   }
 })
 
-// Retrieving A Single Row / Column From A Table
+/* // Retrieving A Single Row / Column From A Table
 builder = Kiirus.createBuilder(config)
 builder.from('users').where('name', 'John').first().then((user) => {
   console.log(user.name)
@@ -71,4 +71,4 @@ builder.from('users')
   .groupBy('status')
   .get().then((users) => {
     console.log(users.all())
-  })
+  }) */

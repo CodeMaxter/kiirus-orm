@@ -30,6 +30,8 @@ module.exports = class MySqlConnection extends Connection {
 
           if (error) {
             reject(error)
+
+            return
           }
 
           const count = result.affectedRows
@@ -89,7 +91,7 @@ module.exports = class MySqlConnection extends Connection {
   select (query, bindings = []) {
     return this._run(query, bindings, (query, bindings) => {
       if (this.pretending()) {
-        return []
+        return Promise.resolve([])
       }
 
       // For select statements, we'll simply execute the query and return an array

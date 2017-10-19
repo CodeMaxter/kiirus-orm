@@ -4,7 +4,7 @@ const Connection = require('./Connection')
 const SQLiteBuilder = require('./Schema/SQLiteBuilder')
 const SQLiteProcessor = require('./Query/Processors/SQLiteProcessor')
 const QueryGrammar = require('./Query/Grammars/SQLiteGrammar')
-const SchemaGrammar = require('./Schema/Grammars/SQLiteGrammar ')
+const SchemaGrammar = require('./Schema/Grammars/SQLiteGrammar')
 
 module.exports = class SQLiteConnection extends Connection {
   /**
@@ -46,5 +46,4 @@ module.exports = class SQLiteConnection extends Connection {
   _getDefaultPostProcessor () {
     return new SQLiteProcessor()
   }
-
 }
