@@ -1109,6 +1109,16 @@ module.exports = class Builder {
   }
 
   /**
+   * Create a raw database expression.
+   *
+   * @param  {*}  value
+   * @return {\Kiirus\Database\Query\Expression}
+   */
+  raw (value) {
+    return this.connection.raw(value)
+  }
+
+  /**
    * Set the columns to be selected.
    *
    * @param  {array|*}  columns

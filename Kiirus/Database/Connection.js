@@ -538,7 +538,7 @@ module.exports = class Connection {
           // catch any exception we can rollback this transaction so that none of this
           // gets actually persisted to a database or stored in a permanent fashion.
           try {
-            resolve(Helper.tap(callback(this), (result) => {
+            const result = Helper.tap(callback(this), (result) => {
               this._connection.commit((error) => {
                 if (error) {
                   return this._connection.rollback(() => {
@@ -546,7 +546,9 @@ module.exports = class Connection {
                   })
                 }
               })
-            }))
+            })
+
+            resolve(result)
           } catch (e) {
             // If we catch an exception we'll rollback this transaction and try again if we
             // are not out of attempts. If we are out of attempts we will just throw the
