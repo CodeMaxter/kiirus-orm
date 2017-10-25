@@ -625,7 +625,7 @@ module.exports = class Connection {
    * @return {boolean}
    */
   _causedByDeadlock (e) {
-    message = e.getMessage()
+    const message = e.getMessage()
 
     return [
       'Deadlock found when trying to get lock',
@@ -635,7 +635,7 @@ module.exports = class Connection {
       'database table is locked',
       'A table in the database is locked',
       'has been chosen as the deadlock victim',
-      'Lock wait timeout exceeded; try restarting transaction',
+      'Lock wait timeout exceeded; try restarting transaction'
     ].includes(message)
   }
 
@@ -745,7 +745,6 @@ module.exports = class Connection {
     this.rollBack()
 
     if (this._causedByDeadlock(e) && currentAttempt < maxAttempts) {
-
       return
     }
 

@@ -6,11 +6,13 @@ const Kiirus = require('./../../Kiirus')
 const { Expression: Raw } = require('./../../Kiirus')
 
 // Get Generated SQL
+
 let builder = Kiirus.createBuilder(config)
-builder.select('*').from('actor')
+/* builder.select('*').from('actor')
 console.log(builder.toSql())
 
 // Retrieving All Rows From A Table
+
 builder = Kiirus.createBuilder(config)
 builder.from('actor').get().then((actors) => {
   for (const actor of actors.all()) {
@@ -21,6 +23,7 @@ builder.from('actor').get().then((actors) => {
 })
 
 // Retrieving A Single Row / Column From A Table
+
 builder = Kiirus.createBuilder(config)
 builder.from('actor').where('first_name', 'KEVIN').first().then((actor) => {
   console.log(actor.first_name)
@@ -29,6 +32,7 @@ builder.from('actor').where('first_name', 'KEVIN').first().then((actor) => {
 })
 
 // Retrieving A List Of Column Values
+
 builder = Kiirus.createBuilder(config)
 builder.from('actor').pluck('first_name').then((actors) => {
   for (const actor of actors.all()) {
@@ -48,6 +52,7 @@ builder.from('actor').pluck('name', 'lastname').then((actors) => {
 })
 
 // Aggregates
+
 builder = Kiirus.createBuilder(config)
 builder.from('actor').count().then((count) => {
   console.log(`The are ${count} ${count === 1 ? 'register' : 'registers'}`)
@@ -68,6 +73,8 @@ builder.from('film').avg('replacement_cost').then((avg) => {
 }).catch((error) => {
   console.log(error)
 })
+
+// Selects
 
 // Specifying A Select Clause
 builder = Kiirus.createBuilder(config)
@@ -102,6 +109,9 @@ builder.from('film')
   })
 
 // Raw Methods
+
+// selectRaw
+
 builder = Kiirus.createBuilder(config)
 builder.from('film')
   .selectRaw('replacement_cost * ? as replacement_cost_with_tax', [1.0825])
@@ -111,6 +121,8 @@ builder.from('film')
     console.log(error)
   })
 
+// whereRaw / orWhereRaw
+
 builder = Kiirus.createBuilder(config)
 builder.from('film')
   .whereRaw('replacement_cost > IF(rental_rate = 4.99, ?, 10)', [20])
@@ -119,6 +131,8 @@ builder.from('film')
   }).catch((error) => {
     console.log(error)
   })
+
+// havingRaw / orHavingRaw
 
 builder = Kiirus.createBuilder(config)
 builder.from('film')
@@ -131,6 +145,8 @@ builder.from('film')
     console.log(error)
   })
 
+// orderByRaw
+
 builder = Kiirus.createBuilder(config)
 builder.from('film')
   .orderByRaw('last_update DESC')
@@ -141,7 +157,9 @@ builder.from('film')
   })
 
 // Joins
+
 // Inner Join Clause
+
 builder = Kiirus.createBuilder(config)
 builder.from('actor')
   .join('film_actor', 'actor.id', '=', 'film_actor.actor_id')
@@ -154,6 +172,7 @@ builder.from('actor')
   })
 
 // Left Join Clause
+
 builder = Kiirus.createBuilder(config)
 builder.from('customer')
   .leftJoin('rental', 'customer.id', '=', 'rental.customer_id')
@@ -164,6 +183,7 @@ builder.from('customer')
   })
 
 // Cross Join Clause
+
 builder = Kiirus.createBuilder(config)
 builder.from('customer')
   .crossJoin('address')
@@ -174,6 +194,7 @@ builder.from('customer')
   })
 
 // Advanced Join Clauses
+
 builder = Kiirus.createBuilder(config)
 builder.from('customer')
   .join('address', (join) => {
@@ -198,6 +219,7 @@ builder.from('customer')
   })
 
 // Unions
+
 builder = Kiirus.createBuilder(config)
 const first = builder.from('customer')
   .where('active', 1)
@@ -208,6 +230,249 @@ builder.from('customer')
   .union(first)
   .get().then((customers) => {
     console.log(customers.all())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// Where Clauses
+
+// Simple Where Clauses
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .where('rental_duration', '=', 6)
+  .get().then((films) => {
+    console.log(films.all())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .where('rental_duration', 6)
+  .get().then((films) => {
+    console.log(films.all())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .where('rental_duration', '>=', 3)
+  .get().then((films) => {
+    console.log(films.all())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .where('rental_duration', '<>', 6)
+  .get().then((films) => {
+    console.log(films.all())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .where('title', 'like', 'T%')
+  .get().then((films) => {
+    console.log(films.all())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('customer').where([
+  ['active', '=', '1'],
+  ['store_id', '<>', '1']
+]).get().then((customers) => {
+  console.log(customers.all())
+  console.log(builder.toSql())
+}).catch((error) => {
+  console.log(error)
+})
+
+// Or Statements
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .where('rental_rate', '>', 2.5)
+  .orWhere('rental_rate', '4.99')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// whereBetween / whereNotBetween
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereBetween('length', [46, 110]).get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereNotBetween('length', [46, 110]).get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// whereIn / whereNotIn
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereIn('id', [1, 2, 3])
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereNotIn('id', [1, 2, 3])
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// whereNull / whereNotNull
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereNull('original_language_id')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereNotNull('original_language_id')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// whereDate / whereMonth / whereDay / whereYear
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereDate('last_update', '2006-02-18')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereMonth('last_update', '02')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereDay('last_update', '18')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereYear('last_update', '2006')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// whereColumn
+
+builder = Kiirus.createBuilder(config)
+builder.from('customer')
+  .whereColumn('first_name', 'last_name')
+  .get().then((customers) => {
+    console.log(customers.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('customer')
+  .whereColumn('last_update', '>', 'create_date')
+  .get().then((customers) => {
+    console.log(customers.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('customer')
+  .whereColumn([
+    ['first_name', '=', 'last_name'],
+    ['last_update', '>', 'create_date']
+  ]).get().then((customers) => {
+    console.log(customers.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// Parameter Grouping
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .where('length', '=', 112)
+  .orWhere((query) => {
+    query.where('rental_duration', '>', 4)
+      .where('rental_rate', '<>', 4.99)
+  })
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  }) */
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .whereExists((query) => {
+    query.select(new Raw(1))
+      .from('film_actor')
+      .whereRaw('film_actor.film_id = film.id')
+  })
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
   }).catch((error) => {
     console.log(error)
   })
