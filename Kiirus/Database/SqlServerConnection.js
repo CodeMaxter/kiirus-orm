@@ -10,16 +10,16 @@ module.exports = class SqlServerConnection extends Connection {
   /**
    * Execute a Closure within a transaction.
    *
-   * @param  {function}  callback
+   * @param  {function}  callbackFunc
    * @param  {number}    attempts
    * @return {*}
    *
    * @throws {\Error}
    */
-  transaction (callback, attempts = 1) {
+  transaction (callbackFunc, attempts = 1) {
     for (let currentAttempt = 1; currentAttempt <= attempts; ++currentAttempt) {
       if (this.getDriverName() === 'sqlsrv') {
-        return super.transaction(callback)
+        return super.transaction(callbackFunc)
       }
 
       return new Promise((resolve, reject) => {
@@ -29,7 +29,7 @@ module.exports = class SqlServerConnection extends Connection {
         let result
 
         try {
-          result = callback(this)
+          result = callbackFunc(this)
 
           this._connection.commit((error) => {
             if (error) {

@@ -82,6 +82,16 @@ module.exports = class SQLiteGrammar extends Grammar {
   }
 
   /**
+   * Compile the random statement into SQL.
+   *
+   * @param  {string}  seed
+   * @return {string}
+   */
+  compileRandom (seed) {
+    return `RAND(${seed})`
+  }
+
+  /**
    * Compile a select query into SQL.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query

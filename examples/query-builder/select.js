@@ -8,7 +8,7 @@ const { Expression: Raw } = require('./../../Kiirus')
 // Get Generated SQL
 
 let builder = Kiirus.createBuilder(config)
-/* builder.select('*').from('actor')
+builder.select('*').from('actor')
 console.log(builder.toSql())
 
 // Retrieving All Rows From A Table
@@ -461,7 +461,9 @@ builder.from('film')
     console.log(builder.toSql())
   }).catch((error) => {
     console.log(error)
-  }) */
+  })
+
+// Where Exists Clauses
 
 builder = Kiirus.createBuilder(config)
 builder.from('film')
@@ -472,6 +474,133 @@ builder.from('film')
   })
   .get().then((films) => {
     console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// JSON Where Clauses
+
+builder = Kiirus.createBuilder(config)
+builder.from('users')
+  .where('options->language', 'en')
+  .get().then((users) => {
+    console.log(users.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('users')
+  .where('preferences->dining->meal', 'salad')
+  .get().then((users) => {
+    console.log(users.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// Ordering, Grouping, Limit, & Offset
+
+// orderBy
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .orderBy('title', 'desc')
+  .get().then((films) => {
+    console.log(films.all())
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// latest / oldest
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .latest('last_update')
+  .first().then((films) => {
+    console.log(films)
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .inRandomOrder()
+  .first().then((films) => {
+    console.log(films)
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// groupBy / having
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .groupBy('language_id')
+  .having('language_id', '>', 2)
+  .get().then((films) => {
+    console.log(films)
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// skip / take
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .skip(10)
+  .take(5)
+  .get().then((films) => {
+    console.log(films)
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .offset(10)
+  .limit(5)
+  .get().then((films) => {
+    console.log(films)
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+// Conditional Clauses
+
+const language = 3
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .when(language, (query) => {
+    return query.where('language_id', language)
+  })
+  .get().then((films) => {
+    console.log(films)
+    console.log(builder.toSql())
+  }).catch((error) => {
+    console.log(error)
+  })
+
+const sortBy = null
+
+builder = Kiirus.createBuilder(config)
+builder.from('film')
+  .when(sortBy, (query) => {
+    return query.orderBy(sortBy)
+  }, (query) => {
+    return query.orderBy('title')
+  })
+  .get().then((films) => {
+    console.log(films)
     console.log(builder.toSql())
   }).catch((error) => {
     console.log(error)

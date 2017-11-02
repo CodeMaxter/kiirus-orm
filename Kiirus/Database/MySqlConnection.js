@@ -1,5 +1,6 @@
 'use strict'
 
+const { Arr } = require('./../Support')
 const Collection = require('./../Database/Ceres/Collection')
 const Connection = require('./Connection')
 const MySqlBuilder = require('./Schema/MySqlBuilder')
@@ -124,6 +125,13 @@ module.exports = class MySqlConnection extends Connection {
     return this._run(query, bindings, (query, bindings) => {
       if (this.pretending()) {
         return Promise.resolve(true)
+      }
+
+      // This condition deal with bulk inserts
+      if (bindings.length > 1) {
+        bindings = [bindings]
+      } else {
+        bindings = Arr.flatten(bindings, 1).shift()
       }
 
       return new Promise((resolve, reject) => {

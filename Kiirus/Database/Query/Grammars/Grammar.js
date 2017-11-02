@@ -689,6 +689,16 @@ module.exports = class Grammar extends BaseGrammar {
   }
 
   /**
+   * Compile the random statement into SQL.
+   *
+   * @param  {string}  seed
+   * @return {string}
+   */
+  compileRandom (seed) {
+    return 'RANDOM()'
+  }
+
+  /**
    * Compile a select query into SQL.
    *
    * @param  {\Kiirus\Database\Query\Builder}  query

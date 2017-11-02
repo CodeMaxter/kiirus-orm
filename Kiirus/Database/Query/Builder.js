@@ -693,6 +693,16 @@ module.exports = class Builder {
   }
 
   /**
+   * Put the query's results in random order.
+   *
+   * @param  {string}  seed
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  inRandomOrder (seed = '') {
+    return this.orderByRaw(this.grammar.compileRandom(seed))
+  }
+
+  /**
    * Insert a new record into the database.
    *
    * @param  {array}  values
@@ -719,12 +729,15 @@ module.exports = class Builder {
       }
     }
 
+    this._cleanBindings(Arr.flatten(values, 1))
+
     // Finally, we will run this query against the database connection and return
     // the results. We will need to also flatten these bindings before running
     // the query so they are all in one huge, flattened array for execution.
     return this.connection.insert(
       this.grammar.compileInsert(this, values),
-      this._cleanBindings(Arr.flatten(values, 1))
+      // this._cleanBindings(Arr.flatten(values, 1))
+      this._cleanBindings(values)
     ).then((result) => {
       return true
     }).catch((reason) => {
@@ -742,7 +755,11 @@ module.exports = class Builder {
   insertGetId (values, sequence = undefined) {
     const sql = this.grammar.compileInsertGetId(this, values, sequence)
 
-    values = this._cleanBindings(values)
+    if (!Array.isArray(values)) {
+      values = [values]
+    }
+
+    values = [this._cleanBindings(values)]
 
     return this.processor.processInsertGetId(this, sql, values, sequence)
       .then((result) => {
@@ -759,7 +776,7 @@ module.exports = class Builder {
    * @param  {string}  second
    * @param  {string}  type
    * @param  {boolean}    where
-   * @return {\Kiirus\Database\Query\Builder|static}
+   * @return {\Kiirus\Database\Query\Builder}
    */
   join (table, first, operator = undefined, second = undefined, type = 'inner', where = false) {
     const join = new JoinClause(this, type, table)
@@ -799,6 +816,16 @@ module.exports = class Builder {
    */
   joinWhere (table, first, operator, second, type = 'inner') {
     return this.join(table, first, operator, second, type, true)
+  }
+
+  /**
+   * Add an "order by" clause for a timestamp to the query.
+   *
+   * @param  {string}  column
+   * @return {\Kiirus\Database\Query\Builder}
+   */
+  latest (column = 'created_at') {
+    return this.orderBy(column, 'desc')
   }
 
   /**
@@ -1855,11 +1882,26 @@ module.exports = class Builder {
    * @return {array}
    */
   _cleanBindings (bindings) {
-    const result = Object.entries(bindings).map(([key, binding]) => {
-      return !(binding instanceof Expression) ? binding : undefined
-    }).filter((bindings) => bindings !== undefined)
+    // const result = Object.entries(bindings).map(([key, binding]) => {
+    //   return !(binding instanceof Expression) ? binding : undefined
+    // }).filter((bindings) => bindings !== undefined)
 
-    return Object.values(result)
+    // return Object.values(result)
+
+    const result = []
+
+    bindings.map((binding) => {
+      const values = Object.entries(binding).map(([key, value]) => {
+        return !(value instanceof Expression) ? value : undefined
+      }).filter((bindings) => bindings !== undefined)
+
+      result.push(Object.values(values))
+      // result.push(Object.values(Object.entries(bindings).map(([key, binding]) => {
+      //   return !(binding instanceof Expression) ? binding : undefined
+      // }).filter((bindings) => bindings !== undefined)))
+    })
+
+    return result
   }
 
   /**

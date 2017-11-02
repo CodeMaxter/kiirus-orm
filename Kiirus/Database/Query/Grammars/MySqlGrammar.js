@@ -46,13 +46,46 @@ module.exports = class MySqlGrammar extends Grammar {
   }
 
   /**
+   * Compile an insert statement into SQL.
+   *
+   * @param  {\Kiirus\Database\Query\Builder}  query
+   * @param  {array}  values
+   * @return {string}
+   */
+  compileInsert (query, values) {
+    // Essentially we will force every insert to be treated as a batch insert which
+    // simply makes creating the SQL easier for us since we can utilize the same
+    // basic routine regardless of an amount of records given to us to insert.
+    const table = this.wrapTable(query.table)
+
+    let parameters
+
+    if (!Array.isArray(values)) {
+      values = [values]
+
+      // We need to build a list of parameter place-holders of values that are bound
+      // to the query. Each insert should have the exact same amount of parameter
+      // bindings so we will loop through the record and parameterize them all.
+      parameters = new Collection(values).map((record) => {
+        return '(' + this.parameterize(record) + ')'
+      }).implode(', ')
+    } else {
+      parameters = '?'
+    }
+
+    const columns = this.columnize(Object.keys(values[0]))
+
+    return `insert into ${table} (${columns}) values ${parameters}`
+  }
+
+  /**
    * Compile the random statement into SQL.
    *
    * @param  {string}  seed
    * @return {string}
    */
   compileRandom (seed) {
-    return 'RAND(' + seed + ')'
+    return `RAND(${seed})`
   }
 
   /**

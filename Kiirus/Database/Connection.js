@@ -314,17 +314,17 @@ module.exports = class Connection {
   /**
    * Execute the given callback in "dry run" mode.
    *
-   * @param  {function}  callback
+   * @param  {function}  callbackFunc
    * @return {Promise<array>}
    */
-  pretend (callback) {
+  pretend (callbackFunc) {
     return this._withFreshQueryLog(() => {
       this.pretending = true
 
       // Basically to make the database connection "pretend", we will just return
       // the default values for all the query methods, then we will return an
       // array of queries that were "executed" within the Closure callback.
-      callback(this)
+      callbackFunc(this)
 
       this.pretending = false
 
@@ -518,13 +518,13 @@ module.exports = class Connection {
   /**
    * Execute a Closure within a transaction.
    *
-   * @param  {function}  callback
+   * @param  {function}  callbackFunc
    * @param  {number}  attempts
    * @return {*}
    *
    * @throws {Exception|}
    */
-  transaction (callback, attempts = 1) {
+  transaction (callbackFunc, attempts = 1) {
     return new Promise((resolve, reject) => {
       for (let currentAttempt = 1; currentAttempt <= attempts; currentAttempt++) {
         this._reconnectIfMissingConnection()
@@ -538,7 +538,7 @@ module.exports = class Connection {
           // catch any exception we can rollback this transaction so that none of this
           // gets actually persisted to a database or stored in a permanent fashion.
           try {
-            const result = Helper.tap(callback(this), (result) => {
+            const result = Helper.tap(callbackFunc(this), (result) => {
               this._connection.commit((error) => {
                 if (error) {
                   return this._connection.rollback(() => {
