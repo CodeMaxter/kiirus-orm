@@ -729,8 +729,6 @@ module.exports = class Builder {
       }
     }
 
-    this._cleanBindings(Arr.flatten(values, 1))
-
     // Finally, we will run this query against the database connection and return
     // the results. We will need to also flatten these bindings before running
     // the query so they are all in one huge, flattened array for execution.
@@ -759,7 +757,7 @@ module.exports = class Builder {
       values = [values]
     }
 
-    values = [this._cleanBindings(values)]
+    values = this._cleanBindings(values)
 
     return this.processor.processInsertGetId(this, sql, values, sequence)
       .then((result) => {
@@ -1888,7 +1886,7 @@ module.exports = class Builder {
 
     // return Object.values(result)
 
-    const result = []
+    /* const result = []
 
     bindings.map((binding) => {
       const values = Object.entries(binding).map(([key, value]) => {
@@ -1901,7 +1899,17 @@ module.exports = class Builder {
       // }).filter((bindings) => bindings !== undefined)))
     })
 
-    return result
+    return result */
+
+    return bindings.filter((binding) => {
+      return !(binding instanceof Expression)
+    }).map((binding) => {
+      return Object.values(binding)
+    })
+
+    // return Object.values(Object.entries(bindings).map(([key, binding]) => {
+    //   return !(binding instanceof Expression) ? Object.values(binding) : undefined
+    // }).filter((bindings) => bindings !== undefined))
   }
 
   /**

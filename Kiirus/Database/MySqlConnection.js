@@ -131,7 +131,7 @@ module.exports = class MySqlConnection extends Connection {
       if (bindings.length > 1) {
         bindings = [bindings]
       } else {
-        bindings = Arr.flatten(bindings, 1).shift()
+        bindings = bindings.shift()
       }
 
       return new Promise((resolve, reject) => {

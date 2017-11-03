@@ -5,7 +5,8 @@ const Expression = require('./Database/Query/Expression')
 const ConnectionFactory = require('./Database/Connectors/ConnectionFactory')
 
 module.exports = {
-  createBuilder: (config) => {
+  // createBuilder: (config) => {
+  QueryBuilder: (config) => {
     const connectionFactory = new ConnectionFactory()
     const connection = connectionFactory.make(config)
 
