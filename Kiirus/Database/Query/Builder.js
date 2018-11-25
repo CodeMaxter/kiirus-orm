@@ -1,12 +1,9 @@
 'use strict'
 
 // const Collection = require('./../../Support/Collection')
-const Arr = require('./../../Support/Arr')
-const Expression = require('./Expression')
-const Helper = require('./../../Support/Helper')
-const JoinClause = require('./JoinClause')
+const { Arr, Helper, Str } = require('./../../Support')
+const { Expression, JoinClause } = require('./')
 const KiirusBuilder = require('./../Ceres/Builder')
-const Str = require('./../../Support/Str')
 
 module.exports = class Builder {
   /**
@@ -365,6 +362,26 @@ module.exports = class Builder {
   }
 
   /**
+   * Decrement a column's value by a given amount.
+   *
+   * @param  {string}  column
+   * @param  {number}  amount
+   * @param  {array}   extra
+   * @return {Promise<number>}
+   */
+  decrement (column, amount = 1, extra = []) {
+    if (!Helper.isNumeric(amount)) {
+      throw new Error('InvalidArgumentException: Non-numeric value passed to decrement method.')
+    }
+
+    const wrapped = this.grammar.wrap(column)
+
+    const columns = Helper.merge({[column]: this.raw(`${wrapped} - ${amount}`)}, extra)
+
+    return this.update(columns)
+  }
+
+  /**
    * Delete a record from the database.
    *
    * @param  {*}  id
@@ -693,6 +710,26 @@ module.exports = class Builder {
   }
 
   /**
+   * Increment a column's value by a given amount.
+   *
+   * @param  {string}  column
+   * @param  {number}  amount
+   * @param  {array}   extra
+   * @return {Promise<number>}
+   */
+  increment (column, amount = 1, extra = []) {
+    if (!Helper.isNumeric(amount)) {
+      throw new Error('InvalidArgumentException: Non-numeric value passed to increment method.')
+    }
+
+    const wrapped = this.grammar.wrap(column)
+
+    const columns = Helper.merge({[column]: this.raw(`${wrapped} + ${amount}`)}, extra)
+
+    return this.update(columns)
+  }
+
+  /**
    * Put the query's results in random order.
    *
    * @param  {string}  seed
@@ -735,7 +772,8 @@ module.exports = class Builder {
     return this.connection.insert(
       this.grammar.compileInsert(this, values),
       // this._cleanBindings(Arr.flatten(values, 1))
-      this._cleanBindings(values)
+      // this._cleanBindings(values)
+      this._cleanBindings(values.map((binding) => Object.values(binding)))
     ).then((result) => {
       return true
     }).catch((reason) => {
@@ -753,11 +791,12 @@ module.exports = class Builder {
   insertGetId (values, sequence = undefined) {
     const sql = this.grammar.compileInsertGetId(this, values, sequence)
 
-    if (!Array.isArray(values)) {
-      values = [values]
-    }
+    // if (!Array.isArray(values)) {
+    //   values = [values]
+    // }
 
-    values = this._cleanBindings(values)
+    values = [this._cleanBindings(values)]
+    // values = this._cleanBindings(values.map((binding) => Object.values(binding)))
 
     return this.processor.processInsertGetId(this, sql, values, sequence)
       .then((result) => {
@@ -1901,15 +1940,25 @@ module.exports = class Builder {
 
     return result */
 
-    return bindings.filter((binding) => {
-      return !(binding instanceof Expression)
-    }).map((binding) => {
-      return Object.values(binding)
-    })
+    // return bindings.filter((binding) => {
+    //   return !(binding instanceof Expression)
+    // }).map((binding) => {
+    //   return Object.values(binding)
+    // })
+
+    // return bindings.filter((binding) => {
+    //   return !(binding instanceof Expression)
+    // }).map((binding) => Object.values(binding))
 
     // return Object.values(Object.entries(bindings).map(([key, binding]) => {
     //   return !(binding instanceof Expression) ? Object.values(binding) : undefined
     // }).filter((bindings) => bindings !== undefined))
+
+    const result = Object.values(bindings).filter((binding) => {
+      return !(binding instanceof Expression)
+    })
+
+    return Object.values(result)
   }
 
   /**

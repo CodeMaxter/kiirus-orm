@@ -1692,7 +1692,7 @@ describe('QueryBuilder', () => {
       const builder = builderStub.getBuilder()
       const connectionMock = createMock(builder.getConnection())
 
-      connectionMock.expects('insert').once().withArgs('insert into "users" ("email") values (?)', ['foo']).returns(Promise.resolve(true))
+      connectionMock.expects('insert').once().withArgs('insert into "users" ("email") values (?)', [['foo']]).returns(Promise.resolve(true))
       builder.from('users').insert({'email': 'foo'}).then((result) => {
         expect(result).to.be.equal(true)
       })
@@ -1702,7 +1702,7 @@ describe('QueryBuilder', () => {
       const builder = builderStub.getSQLiteBuilder()
       const connectionMock = createMock(builder.getConnection())
 
-      connectionMock.expects('insert').once().withArgs('insert into "users" ("email", "name") select ? as "email", ? as "name" union all select ? as "email", ? as "name"', ['foo', 'taylor', 'bar', 'dayle']).returns(Promise.resolve(true))
+      connectionMock.expects('insert').once().withArgs('insert into "users" ("email", "name") select ? as "email", ? as "name" union all select ? as "email", ? as "name"', [['foo', 'taylor'], ['bar', 'dayle']]).returns(Promise.resolve(true))
       builder.from('users').insert([{'email': 'foo', 'name': 'taylor'}, {'email': 'bar', 'name': 'dayle'}]).then((result) => {
         expect(result).to.be.equal(true)
       })
@@ -1715,7 +1715,7 @@ describe('QueryBuilder', () => {
         return {insertId: 1}
       }})
 
-      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?)', ['foo'], 'id').returns(result)
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email") values (?)', [['foo']], 'id').returns(result)
       builder.from('users').insertGetId({'email': 'foo'}, 'id').then((result) => {
         expect(result).to.be.equal(1)
       })
@@ -1728,7 +1728,7 @@ describe('QueryBuilder', () => {
         return {insertId: 1}
       }})
 
-      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email", "bar") values (?, bar)', ['foo'], 'id').returns(result)
+      processorMock.expects('processInsertGetId').once().withArgs(builder, 'insert into "users" ("email", "bar") values (?, bar)', [['foo']], 'id').returns(result)
       builder.from('users').insertGetId({'email': 'foo', 'bar': new Raw('bar')}, 'id').then((result) => {
         expect(result).to.be.equal(1)
       })

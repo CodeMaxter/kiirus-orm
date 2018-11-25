@@ -66,16 +66,16 @@ module.exports = class MySqlGrammar extends Grammar {
 
     const columns = this.columnize(Object.keys(values[0]))
 
-    if (values.length > 1) {
-      parameters = '?'
-    } else {
-      // We need to build a list of parameter place-holders of values that are bound
-      // to the query. Each insert should have the exact same amount of parameter
-      // bindings so we will loop through the record and parameterize them all.
-      parameters = new Collection(values).map((record) => {
-        return '(' + this.parameterize(record) + ')'
-      }).implode(', ')
-    }
+    // if (values.length > 1) {
+    parameters = '?'
+    // } else {
+    //   // We need to build a list of parameter place-holders of values that are bound
+    //   // to the query. Each insert should have the exact same amount of parameter
+    //   // bindings so we will loop through the record and parameterize them all.
+    //   parameters = new Collection(values).map((record) => {
+    //     return '(' + this.parameterize(record) + ')'
+    //   }).implode(', ')
+    // }
 
     return `insert into ${table} (${columns}) values ${parameters}`
   }
